@@ -8,8 +8,10 @@
   "homepage": "https://github.com/Xaroq/browso",
   "scripts": {
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint --cache .",
     "test:smoke": "node --test --experimental-strip-types test/**/*.test.ts",
+    "test:coverage": "node --test --experimental-strip-types --experimental-test-coverage test/**/*.test.ts",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
