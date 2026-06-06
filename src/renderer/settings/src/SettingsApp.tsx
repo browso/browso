@@ -82,7 +82,7 @@ export const SettingsApp: React.FC = () => {
       (next) => setUpdateState(next),
     );
 
-    const load = async () => {
+    const load = async (): Promise<void> => {
       const [next, savedMemories, nextUpdateState] = await Promise.all([
         window.settingsAPI.getAppSettings(),
         window.settingsAPI.getMemories(),
@@ -112,7 +112,7 @@ export const SettingsApp: React.FC = () => {
     return result;
   };
 
-  const updateSettings = async (patch: Partial<AppSettings>) => {
+  const updateSettings = async (patch: Partial<AppSettings>): Promise<void> => {
     const next = await window.settingsAPI.updateAppSettings(patch);
     setSettings(next);
 

@@ -1,4 +1,4 @@
-import { NativeImage, WebContentsView } from "electron";
+import { NativeImage, WebContentsView, type WebContents } from "electron";
 import { AISettingsStore } from "./AISettings";
 import {
   BROWSO_WELCOME_URL,
@@ -74,7 +74,7 @@ export class Tab {
     return this._isVisible;
   }
 
-  get webContents() {
+  get webContents(): WebContents {
     return this.webContentsView.webContents;
   }
 
@@ -97,7 +97,9 @@ export class Tab {
     return await this.webContentsView.webContents.capturePage();
   }
 
-  async runJs(code: string): Promise<any> {
+  async runJs(
+    code: string,
+  ): Promise<Awaited<ReturnType<WebContents["executeJavaScript"]>>> {
     return await this.webContentsView.webContents.executeJavaScript(code);
   }
 

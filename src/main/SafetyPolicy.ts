@@ -25,8 +25,7 @@ const BLOCKED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 
 const CONFIRM_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   {
-    pattern:
-      /\bsubmit\b|\bsend\b.{0,30}\b(form|email|message|application)\b/i,
+    pattern: /\bsubmit\b|\bsend\b.{0,30}\b(form|email|message|application)\b/i,
     reason: "Submitting information requires user confirmation.",
   },
   {

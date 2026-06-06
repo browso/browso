@@ -276,7 +276,7 @@ export class ComputerUseManager {
       this.getActiveTab,
       this.webContents,
       this.settingsStore,
-    ) as any;
+    );
     const snapshot = await this.getPageSnapshot();
     const prompt = [
       `User goal: ${goal}`,
@@ -299,7 +299,7 @@ export class ComputerUseManager {
         tools,
         stopWhen: stepCountIs(MAX_STEPS),
         temperature: 0.2,
-        onStepFinish: async (event: any) => {
+        onStepFinish: async (event): Promise<void> => {
           stepCounter++;
           const { toolCalls, toolResults, text } = event;
           totalSteps += toolCalls.length;
@@ -366,10 +366,7 @@ export class ComputerUseManager {
         },
       });
 
-      // Consume the stream
-      for await (const _chunk of result.textStream) {
-        // Stream is being processed in onStepFinish
-      }
+      await result.consumeStream();
 
       if (session.status !== "completed") {
         session.status = "completed";

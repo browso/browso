@@ -1,5 +1,10 @@
 import { WebContents } from "electron";
-import { streamText, type LanguageModel, type CoreMessage } from "ai";
+import {
+  streamText,
+  type LanguageModel,
+  type CoreMessage,
+  type UserContent,
+} from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createOllama } from "ai-sdk-ollama";
@@ -138,7 +143,7 @@ export class LLMClient {
       }
 
       // Build user message content with screenshot first, then text
-      const userContent: any[] = [];
+      const userContent: UserContent = [];
 
       // Add screenshot as the first part if available
       if (screenshot) {
@@ -448,7 +453,7 @@ export class LLMClient {
           isComplete: true,
         });
         return true;
-      } catch (error) {
+      } catch {
         const response = `I searched ${providerLabel} for "${query}" and found "${firstResult.title}", but opening it failed. I left the search results page open instead.`;
         this.appendAssistantMessage(response);
         this.sendStreamChunk(request.messageId, {
@@ -1036,19 +1041,15 @@ export class LLMClient {
     messageId: string,
     model: LanguageModel,
   ): Promise<void> {
-    try {
-      const result = await streamText({
-        model,
-        messages,
-        temperature: DEFAULT_TEMPERATURE,
-        maxRetries: 3,
-        abortSignal: undefined, // Could add abort controller for cancellation
-      });
+    const result = await streamText({
+      model,
+      messages,
+      temperature: DEFAULT_TEMPERATURE,
+      maxRetries: 3,
+      abortSignal: undefined, // Could add abort controller for cancellation
+    });
 
-      await this.processStream(result.textStream, messageId);
-    } catch (error) {
-      throw error; // Re-throw to be handled by the caller
-    }
+    await this.processStream(result.textStream, messageId);
   }
 
   private async processStream(

@@ -6,7 +6,7 @@ function subscribeToIpcChannel<T>(
   channel: string,
   callback: (payload: T) => void,
 ): () => void {
-  const listener = (_event: Electron.IpcRendererEvent, payload: T) =>
+  const listener = (_event: Electron.IpcRendererEvent, payload: T): void =>
     callback(payload);
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
@@ -62,16 +62,10 @@ const settingsAPI = {
   openReleasePage: () =>
     browsoAPI.ipcRenderer.invoke("update-open-release-page"),
   onAppSettingsUpdated: (callback: (settings: AppSettings) => void) => {
-    return subscribeToIpcChannel(
-      "app-settings-updated",
-      callback,
-    );
+    return subscribeToIpcChannel("app-settings-updated", callback);
   },
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => {
-    return subscribeToIpcChannel(
-      "update-state-changed",
-      callback,
-    );
+    return subscribeToIpcChannel("update-state-changed", callback);
   },
 };
 
@@ -79,10 +73,7 @@ const darkModeAPI = {
   setDarkMode: (isDarkMode: boolean) =>
     browsoAPI.ipcRenderer.send("dark-mode-changed", isDarkMode),
   onDarkModeChanged: (callback: (isDarkMode: boolean) => void) =>
-    subscribeToIpcChannel(
-      "dark-mode-updated",
-      callback,
-    ),
+    subscribeToIpcChannel("dark-mode-updated", callback),
 };
 
 if (process.contextIsolated) {
@@ -93,8 +84,8 @@ if (process.contextIsolated) {
     console.error(error);
   }
 } else {
-  // @ts-ignore
+  // @ts-expect-error -- fallback assignment when context isolation is disabled.
   window.settingsAPI = settingsAPI;
-  // @ts-ignore
+  // @ts-expect-error -- fallback assignment when context isolation is disabled.
   window.darkModeAPI = darkModeAPI;
 }

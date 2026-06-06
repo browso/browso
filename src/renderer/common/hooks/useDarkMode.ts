@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
 
-export const useDarkMode = () => {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
+interface DarkModeState {
+  isDarkMode: boolean;
+  setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleDarkMode: () => void;
+}
+
+export const useDarkMode = (): DarkModeState => {
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     // Check if dark mode preference exists in localStorage
     const savedMode = localStorage.getItem("darkMode");
     if (savedMode !== null) {
-      return JSON.parse(savedMode);
+      return JSON.parse(savedMode) as boolean;
     }
     // Otherwise check system preference
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -31,7 +37,7 @@ export const useDarkMode = () => {
     return window.darkModeAPI.onDarkModeChanged(setIsDarkMode);
   }, []);
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = (): void => {
     setIsDarkMode(!isDarkMode);
   };
 

@@ -1,7 +1,10 @@
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { LEGACY_BLUEBERRY_WELCOME_URL, BROWSO_WELCOME_URL } from "./WelcomePage";
+import {
+  LEGACY_BLUEBERRY_WELCOME_URL,
+  BROWSO_WELCOME_URL,
+} from "./WelcomePage";
 import type { AgentModeId } from "./AgentModes";
 import { normalizeHomepage } from "./navigationPolicy.ts";
 

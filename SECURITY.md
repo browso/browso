@@ -4,10 +4,10 @@
 
 Browso follows semantic versioning. Security updates are provided for the following versions:
 
-| Version   | Supported          |
-| --------- | ------------------ |
-| 1.0.x     | :white_check_mark: |
-| < 1.0.0   | :x:                |
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.0.x   | :white_check_mark: |
+| < 1.0.0 | :x:                |
 
 ## Reporting a Vulnerability
 

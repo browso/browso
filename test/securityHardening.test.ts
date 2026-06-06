@@ -2,15 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const read = (path: string) => readFileSync(path, "utf8");
+const read = (path: string): string => readFileSync(path, "utf8");
 
 test("page extraction scripts are expressions, not top-level returns", () => {
   const source = read("src/main/Tab.ts");
 
-  assert.doesNotMatch(
-    source,
-    /runJs\(["'`]return document\.documentElement/,
-  );
+  assert.doesNotMatch(source, /runJs\(["'`]return document\.documentElement/);
   assert.match(source, /document\.documentElement\?\.outerHTML/);
 });
 
@@ -21,11 +18,7 @@ test("preloads expose only narrow renderer bridges", () => {
     "src/preload/settings.ts",
   ]) {
     const source = read(path);
-    assert.doesNotMatch(
-      source,
-      /exposeInMainWorld\(["']browso["']/,
-      path,
-    );
+    assert.doesNotMatch(source, /exposeInMainWorld\(["']browso["']/, path);
     assert.doesNotMatch(source, /window\.browso\s*=/, path);
   }
 });

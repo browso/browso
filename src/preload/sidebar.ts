@@ -6,7 +6,7 @@ function subscribeToIpcChannel<T>(
   channel: string,
   callback: (payload: T) => void,
 ): () => void {
-  const listener = (_event: Electron.IpcRendererEvent, payload: T) =>
+  const listener = (_event: Electron.IpcRendererEvent, payload: T): void =>
     callback(payload);
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
@@ -66,17 +66,11 @@ const sidebarAPI = {
   getMessages: () => browsoAPI.ipcRenderer.invoke("sidebar-get-messages"),
 
   onChatResponse: (callback: (data: ChatResponse) => void) => {
-    return subscribeToIpcChannel(
-      "chat-response",
-      callback,
-    );
+    return subscribeToIpcChannel("chat-response", callback);
   },
 
-  onMessagesUpdated: (callback: (messages: any[]) => void) => {
-    return subscribeToIpcChannel(
-      "chat-messages-updated",
-      callback,
-    );
+  onMessagesUpdated: (callback: (messages: unknown[]) => void) => {
+    return subscribeToIpcChannel("chat-messages-updated", callback);
   },
 
   // Page content access
@@ -109,13 +103,10 @@ const sidebarAPI = {
   updateAppSettings: (settings: Partial<AISettings>) =>
     browsoAPI.ipcRenderer.invoke("app-settings-update", settings),
   onAISettingsUpdated: (callback: (settings: AISettings) => void) => {
-    return subscribeToIpcChannel(
-      "ai-settings-updated",
-      callback,
-    );
+    return subscribeToIpcChannel("ai-settings-updated", callback);
   },
   onOpenSettings: (callback: () => void) => {
-    const listener = () => callback();
+    const listener = (): void => callback();
     browsoAPI.ipcRenderer.on("sidebar-open-settings", listener);
     return () => {
       browsoAPI.ipcRenderer.removeListener("sidebar-open-settings", listener);
@@ -130,10 +121,7 @@ const sidebarAPI = {
   generateComputerUseScript: (request: ComputerUseRequest) =>
     browsoAPI.ipcRenderer.invoke("computer-use-generate-script", request),
   onComputerUseState: (callback: (state: unknown) => void) => {
-    return subscribeToIpcChannel(
-      "computer-use-state",
-      callback,
-    );
+    return subscribeToIpcChannel("computer-use-state", callback);
   },
 
   // Sandbox
@@ -153,10 +141,7 @@ const sidebarAPI = {
   runSandbox: (request?: { entryFileId?: string | null }) =>
     browsoAPI.ipcRenderer.invoke("sandbox-run", request),
   onSandboxState: (callback: (state: unknown) => void) => {
-    return subscribeToIpcChannel(
-      "sandbox-state",
-      callback,
-    );
+    return subscribeToIpcChannel("sandbox-state", callback);
   },
 };
 
@@ -164,10 +149,7 @@ const darkModeAPI = {
   setDarkMode: (isDarkMode: boolean) =>
     browsoAPI.ipcRenderer.send("dark-mode-changed", isDarkMode),
   onDarkModeChanged: (callback: (isDarkMode: boolean) => void) =>
-    subscribeToIpcChannel(
-      "dark-mode-updated",
-      callback,
-    ),
+    subscribeToIpcChannel("dark-mode-updated", callback),
 };
 
 // Expose only the narrow sidebar bridge to the renderer.

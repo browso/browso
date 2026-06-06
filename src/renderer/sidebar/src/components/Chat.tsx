@@ -42,7 +42,9 @@ const COMMAND_SUGGESTIONS = [
   },
 ] as const;
 
-const getActiveSession = (state: ComputerUseState | null) =>
+const getActiveSession = (
+  state: ComputerUseState | null,
+): ComputerUseState["sessions"][number] | null =>
   state?.sessions.find((session) => session.id === state.activeSessionId) ??
   state?.sessions[0] ??
   null;
@@ -142,7 +144,7 @@ export const Chat: React.FC = () => {
       },
     );
 
-    const load = async () => {
+    const load = async (): Promise<void> => {
       const [
         history,
         activeBrowserTab,
@@ -191,7 +193,7 @@ export const Chat: React.FC = () => {
   }, [messages]);
 
   useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
+    const handleMouseMove = (event: MouseEvent): void => {
       const currentDrag = dragState.current;
       if (!currentDrag) {
         return;
@@ -210,7 +212,7 @@ export const Chat: React.FC = () => {
       void window.sidebarAPI.setSidebarWidth(nextWidth);
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (): void => {
       dragState.current = null;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
@@ -225,7 +227,7 @@ export const Chat: React.FC = () => {
     };
   }, []);
 
-  const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>): void => {
     if (!layout) {
       return;
     }
@@ -272,7 +274,7 @@ export const Chat: React.FC = () => {
       ? "Agent Thinking"
       : null;
 
-  const sendMessage = async (message: string) => {
+  const sendMessage = async (message: string): Promise<void> => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage || isComposerLocked) {
       return;
@@ -291,14 +293,16 @@ export const Chat: React.FC = () => {
     }
   };
 
-  const changeMode = async (mode: AISettings["activeAgentMode"]) => {
+  const changeMode = async (
+    mode: AISettings["activeAgentMode"],
+  ): Promise<void> => {
     const updated = await window.sidebarAPI.updateAISettings({
       activeAgentMode: mode,
     });
     setSettings(updated);
   };
 
-  const saveCurrentPage = async () => {
+  const saveCurrentPage = async (): Promise<void> => {
     setSaveStatus("Saving...");
     try {
       const page = await window.sidebarAPI.saveCurrentPage();

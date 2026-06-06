@@ -84,22 +84,24 @@ export function selectLatestRelease(
   releases: ReleaseMetadata[],
   includePrereleases: boolean,
 ): ReleaseMetadata | null {
-  return releases
-    .filter((release) => !release.draft)
-    .filter((release) => includePrereleases || !release.prerelease)
-    .map((release) => ({
-      release,
-      version:
-        normalizeVersion(release.tagName) ?? extractVersion(release.name),
-    }))
-    .filter(
-      (
-        candidate,
-      ): candidate is { release: ReleaseMetadata; version: string } =>
-        candidate.version !== null,
-    )
-    .sort((left, right) => compareVersions(right.version, left.version))[0]
-    ?.release ?? null;
+  return (
+    releases
+      .filter((release) => !release.draft)
+      .filter((release) => includePrereleases || !release.prerelease)
+      .map((release) => ({
+        release,
+        version:
+          normalizeVersion(release.tagName) ?? extractVersion(release.name),
+      }))
+      .filter(
+        (
+          candidate,
+        ): candidate is { release: ReleaseMetadata; version: string } =>
+          candidate.version !== null,
+      )
+      .sort((left, right) => compareVersions(right.version, left.version))[0]
+      ?.release ?? null
+  );
 }
 
 export function buildUpdateSnapshot(

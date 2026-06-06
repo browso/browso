@@ -23,10 +23,7 @@ test("selectLatestRelease respects stable and beta channels", () => {
   ];
 
   assert.equal(selectLatestRelease(releases, false)?.tagName, "v1.0.0");
-  assert.equal(
-    selectLatestRelease(releases, true)?.tagName,
-    "v1.1.0-beta.1",
-  );
+  assert.equal(selectLatestRelease(releases, true)?.tagName, "v1.1.0-beta.1");
 });
 
 test("buildUpdateSnapshot preserves dismissal for the same release but resets for a newer one", () => {

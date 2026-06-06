@@ -1,10 +1,11 @@
-import { tool } from "ai";
+import { tool, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { Tab } from "./Tab";
 import type { WebContents } from "electron";
 import type { AISettingsStore } from "./AISettings";
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 // Payment-related field patterns that should never be filled by the agent
 const PAYMENT_FIELD_PATTERNS = /card|cvv|cvc|expiry|security[-_]?code|cc[-_]/i;
@@ -28,9 +29,7 @@ export function buildProductMatchPattern(query?: string): RegExp {
   }
 
   return new RegExp(
-    terms
-      .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|"),
+    terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
     "i",
   );
 }
@@ -39,11 +38,11 @@ export function buildShoppingTools(
   getActiveTab: () => Tab | null,
   webContents: WebContents,
   settingsStore: AISettingsStore,
-): any {
-  const defineTool = (config: Record<string, unknown>) =>
-    tool(config as any) as any;
+): ToolSet {
+  const defineTool = (config: Record<string, unknown>): ToolSet[string] =>
+    tool(config as unknown as Tool<never, never>) as ToolSet[string];
 
-  const activeTab = () => {
+  const activeTab = (): Tab => {
     const tab = getActiveTab();
     if (!tab) {
       throw new Error("No active tab available");

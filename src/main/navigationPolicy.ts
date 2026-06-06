@@ -7,10 +7,7 @@ const ALLOWED_NAVIGATION_PROTOCOLS = new Set(["http:", "https:"]);
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 
 export function isAllowedNavigationTarget(value: string): boolean {
-  if (
-    value === BROWSO_WELCOME_URL ||
-    value === LEGACY_BLUEBERRY_WELCOME_URL
-  ) {
+  if (value === BROWSO_WELCOME_URL || value === LEGACY_BLUEBERRY_WELCOME_URL) {
     return true;
   }
 

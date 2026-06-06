@@ -11,7 +11,7 @@ export function subscribeToIpcChannel<T>(
   channel: string,
   callback: (payload: T) => void,
 ): () => void {
-  const listener = (...args: unknown[]) => {
+  const listener = (...args: unknown[]): void => {
     callback(args[1] as T);
   };
 
