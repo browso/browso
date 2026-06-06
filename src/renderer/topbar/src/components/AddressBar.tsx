@@ -2,11 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
   RefreshCw,
   Loader2,
-  PanelLeftClose,
-  PanelLeft,
-  Settings,
   Columns2,
 } from "lucide-react";
 import { useBrowser } from "../contexts/BrowserContext";
@@ -228,24 +226,15 @@ export const AddressBar: React.FC = () => {
   } = useBrowser();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchEngine, setSearchEngine] = useState<SearchEngine>("google");
-  const [hasUpdate, setHasUpdate] = useState(false);
 
   useEffect(() => {
     const removeAppSettingsListener = window.topBarAPI.onAppSettingsUpdated(
       (settings) => setSearchEngine(settings.searchEngine),
     );
-    const removeUpdateStateListener = window.topBarAPI.onUpdateStateChanged(
-      (state) => setHasUpdate(state.hasUpdate && !state.dismissed),
-    );
-
     const loadState = async (): Promise<void> => {
       try {
-        const [settings, updateState] = await Promise.all([
-          window.topBarAPI.getAppSettings(),
-          window.topBarAPI.getUpdateState(),
-        ]);
+        const settings = await window.topBarAPI.getAppSettings();
         setSearchEngine(settings.searchEngine);
-        setHasUpdate(updateState.hasUpdate && !updateState.dismissed);
       } catch (error) {
         console.error("Failed to load top bar state:", error);
       }
@@ -255,7 +244,6 @@ export const AddressBar: React.FC = () => {
 
     return () => {
       removeAppSettingsListener();
-      removeUpdateStateListener();
     };
   }, []);
 
@@ -267,10 +255,6 @@ export const AddressBar: React.FC = () => {
     if (window.topBarAPI) {
       void window.topBarAPI.toggleSidebar();
     }
-  };
-
-  const openSettings = (): void => {
-    void window.topBarAPI.openBrowserSettings();
   };
 
   const addressTabs = isSplitView ? splitTabs : [activeTab];
@@ -326,14 +310,8 @@ export const AddressBar: React.FC = () => {
           toggled={isSplitView}
           active={activeTab !== null && !isLoading}
         />
-        <div className="relative">
-          <ToolBarButton Icon={Settings} onClick={openSettings} />
-          {hasUpdate && (
-            <span className="pointer-events-none absolute right-1.5 top-1.5 size-2 rounded-full bg-amber-500" />
-          )}
-        </div>
         <ToolBarButton
-          Icon={isSidebarOpen ? PanelLeftClose : PanelLeft}
+          Icon={Bot}
           onClick={toggleSidebar}
           toggled={isSidebarOpen}
         />
