@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode */
+    --background: 255 255 255;
+    --foreground: 20 20 20;
+    --card: 255 255 255;
+    --card-foreground: 20 20 20;
+    --popover: 255 255 255;
+    --popover-foreground: 20 20 20;
+    --primary: 30 30 30;
+    --primary-foreground: 250 250 250;
+    --secondary: 245 245 245;
+    --secondary-foreground: 30 30 30;
+    --muted: 245 245 245;
+    --muted-foreground: 115 115 115;
+    --accent: 245 245 245;
+    --accent-foreground: 30 30 30;
+    --destructive: 239 68 68;
+    --destructive-foreground: 250 250 250;
+    --border: 229 229 229;
+    --input: 229 229 229;
+    --ring: 161 161 161;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    /* Dark mode */
+    --background: 20 20 20;
+    --foreground: 250 250 250;
+    --card: 20 20 20;
+    --card-foreground: 250 250 250;
+    --popover: 20 20 20;
+    --popover-foreground: 250 250 250;
+    --primary: 250 250 250;
+    --primary-foreground: 30 30 30;
+    --secondary: 40 40 40;
+    --secondary-foreground: 250 250 250;
+    --muted: 40 40 40;
+    --muted-foreground: 161 161 161;
+    --accent: 40 40 40;
+    --accent-foreground: 250 250 250;
+    --destructive: 220 38 38;
+    --destructive-foreground: 250 250 250;
+    --border: 40 40 40;
+    --input: 40 40 40;
+    --ring: 82 82 82;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+@layer base {
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+    height: 100vh;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .app-region-drag {
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .app-region-no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+

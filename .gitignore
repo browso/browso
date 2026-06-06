@@ -1,0 +1,130 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+releases/
+
+# Builder artifacts
+*.app
+*.AppImage
+*.blockmap
+*.deb
+*.dmg
+*.exe
+*.msi
+*.pkg
+*.rpm
+*.snap
+builder-debug.yml
+builder-effective-config.yaml
+latest*.yml
+
+# Build and compiler caches
+.cache/
+.browso-runtime/
+.browso-build/
+.parcel-cache/
+.rollup.cache/
+.turbo/
+.vite/
+.vite-cache/
+*.tsbuildinfo
+
+# Test output and coverage
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+
+# Linter and formatter caches
+.eslintcache
+.prettier-cache
+.stylelintcache
+
+# Logs and diagnostic reports
+logs/
+*.log
+*.log.*
+debug.log*
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids/
+*.pid
+*.pid.lock
+*.seed
+*.sock
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.p12
+*.pfx
+*.key
+*.cer
+*.crt
+
+# Package manager state
+.npm/
+.pnpm-store/
+.yarn/
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+!.yarn/versions/
+.pnp.*
+
+# Local editor settings
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+*~
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files and directories
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Runtime crash dumps
+crash-reports/
+Crashpad/
+*.dmp

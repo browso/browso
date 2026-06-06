@@ -1,0 +1,68 @@
+import { contextBridge } from "electron";
+import { electronAPI as browsoAPI } from "@electron-toolkit/preload";
+import { subscribeToIpcChannel } from "./ipcSubscription";
+
+// TopBar specific APIs
+const topBarAPI = {
+  // Tab management
+  createTab: (url?: string) =>
+    browsoAPI.ipcRenderer.invoke("create-tab", url),
+  closeTab: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("close-tab", tabId),
+  switchTab: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("switch-tab", tabId),
+  getTabs: () => browsoAPI.ipcRenderer.invoke("get-tabs"),
+  toggleSplitView: (url?: string) =>
+    browsoAPI.ipcRenderer.invoke("toggle-split-view", url),
+  getSplitState: () => browsoAPI.ipcRenderer.invoke("get-split-state"),
+
+  // Tab navigation
+  navigateTab: (tabId: string, url: string) =>
+    browsoAPI.ipcRenderer.invoke("navigate-tab", tabId, url),
+  goBack: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("tab-go-back", tabId),
+  goForward: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("tab-go-forward", tabId),
+  reload: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("tab-reload", tabId),
+
+  // Tab actions
+  tabScreenshot: (tabId: string) =>
+    browsoAPI.ipcRenderer.invoke("tab-screenshot", tabId),
+
+  // Sidebar
+  toggleSidebar: () => browsoAPI.ipcRenderer.invoke("toggle-sidebar"),
+  openBrowserSettings: () =>
+    browsoAPI.ipcRenderer.invoke("open-browser-settings"),
+  getAppSettings: () => browsoAPI.ipcRenderer.invoke("app-settings-get"),
+  getUpdateState: () => browsoAPI.ipcRenderer.invoke("update-state-get"),
+  onAppSettingsUpdated: (callback: (settings: unknown) => void) => {
+    return subscribeToIpcChannel(
+      browsoAPI.ipcRenderer,
+      "app-settings-updated",
+      callback,
+    );
+  },
+  onUpdateStateChanged: (callback: (state: unknown) => void) => {
+    return subscribeToIpcChannel(
+      browsoAPI.ipcRenderer,
+      "update-state-changed",
+      callback,
+    );
+  },
+};
+
+// Expose the BROWSO desktop bridge to the renderer.
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld("browso", browsoAPI);
+    contextBridge.exposeInMainWorld("topBarAPI", topBarAPI);
+  } catch (error) {
+    console.error(error);
+  }
+} else {
+  // @ts-ignore (define in dts)
+  window.browso = browsoAPI;
+  // @ts-ignore (define in dts)
+  window.topBarAPI = topBarAPI;
+}
