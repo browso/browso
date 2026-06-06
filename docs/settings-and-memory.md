@@ -18,6 +18,15 @@ Settings are persisted by `AISettingsStore` in `ai-settings.json`.
 
 Provider credentials are not stored in this file.
 
+The Data tab provides explicit local-data controls:
+
+- clear the current AI conversation
+- review, delete, or clear pages saved for AI knowledge
+- clear the browser cache without removing sign-ins
+- clear cookies and site storage, which signs users out of websites
+
+The application does not persist a general browsing-history database.
+
 ## User Memory
 
 Memory stores durable facts about how the assistant should work with the user.

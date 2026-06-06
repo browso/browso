@@ -67,6 +67,14 @@ const settingsAPI = {
   deleteMemory: (id: string) =>
     browsoAPI.ipcRenderer.invoke("memory-delete", id),
   clearMemories: () => browsoAPI.ipcRenderer.invoke("memory-clear"),
+  getKnowledgePages: () => browsoAPI.ipcRenderer.invoke("knowledge-list"),
+  deleteKnowledgePage: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("knowledge-delete", id),
+  clearKnowledgePages: () => browsoAPI.ipcRenderer.invoke("knowledge-clear"),
+  clearChatHistory: () =>
+    browsoAPI.ipcRenderer.invoke("settings-clear-chat-history"),
+  clearSiteData: () => browsoAPI.ipcRenderer.invoke("settings-clear-site-data"),
+  clearCache: () => browsoAPI.ipcRenderer.invoke("settings-clear-cache"),
   getUpdateState: () => browsoAPI.ipcRenderer.invoke("update-state-get"),
   checkForUpdates: () => browsoAPI.ipcRenderer.invoke("update-check"),
   downloadUpdate: () => browsoAPI.ipcRenderer.invoke("update-download"),

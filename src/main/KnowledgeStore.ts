@@ -84,6 +84,12 @@ export class KnowledgeStore {
     return this.list();
   }
 
+  clear(): KnowledgePage[] {
+    this.pages = [];
+    this.persist();
+    return [];
+  }
+
   search(query: string, limit = 8): KnowledgeSearchResult[] {
     return rankKnowledgePages(this.pages, query).slice(0, limit);
   }

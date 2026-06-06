@@ -3,10 +3,14 @@ import { Button } from "@common/components/Button";
 import { useDarkMode } from "@common/hooks/useDarkMode";
 import { cn } from "@common/lib/utils";
 import {
+  BookOpen,
   Bot,
   ChevronRight,
+  Database,
   Download,
   Globe,
+  HardDrive,
+  History,
   LayoutPanelLeft,
   MemoryStick,
   Moon,
@@ -23,10 +27,13 @@ type OllamaModelsResult = Awaited<
 type MemoryEntry = Awaited<
   ReturnType<typeof window.settingsAPI.getMemories>
 >[number];
+type KnowledgePage = Awaited<
+  ReturnType<typeof window.settingsAPI.getKnowledgePages>
+>[number];
 type UpdateState = Awaited<
   ReturnType<typeof window.settingsAPI.getUpdateState>
 >;
-type SettingsTab = "general" | "ai" | "workspace" | "memory";
+type SettingsTab = "general" | "ai" | "workspace" | "memory" | "data";
 
 type TabConfig = {
   id: SettingsTab;
@@ -55,6 +62,11 @@ const tabs: TabConfig[] = [
     label: "Memory",
     icon: MemoryStick,
   },
+  {
+    id: "data",
+    label: "Data",
+    icon: Database,
+  },
 ];
 
 const cardClassName =
@@ -67,6 +79,8 @@ export const SettingsApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
+  const [knowledgePages, setKnowledgePages] = useState<KnowledgePage[]>([]);
+  const [dataActionStatus, setDataActionStatus] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
   const [ollamaState, setOllamaState] = useState<{
     loading: boolean;
@@ -83,13 +97,16 @@ export const SettingsApp: React.FC = () => {
     );
 
     const load = async (): Promise<void> => {
-      const [next, savedMemories, nextUpdateState] = await Promise.all([
-        window.settingsAPI.getAppSettings(),
-        window.settingsAPI.getMemories(),
-        window.settingsAPI.getUpdateState(),
-      ]);
+      const [next, savedMemories, savedPages, nextUpdateState] =
+        await Promise.all([
+          window.settingsAPI.getAppSettings(),
+          window.settingsAPI.getMemories(),
+          window.settingsAPI.getKnowledgePages(),
+          window.settingsAPI.getUpdateState(),
+        ]);
       setSettings(next);
       setMemories(savedMemories);
+      setKnowledgePages(savedPages);
       setUpdateState(nextUpdateState);
     };
 
@@ -122,6 +139,31 @@ export const SettingsApp: React.FC = () => {
 
     if ((patch.provider ?? next.provider) === "ollama") {
       void loadOllamaModels();
+    }
+  };
+
+  const runDataAction = async (
+    successMessage: string,
+    action: () => Promise<unknown>,
+  ): Promise<void> => {
+    setDataActionStatus(null);
+    try {
+      await action();
+      setDataActionStatus(successMessage);
+    } catch (error) {
+      setDataActionStatus(
+        error instanceof Error
+          ? error.message
+          : "The action could not be completed.",
+      );
+    }
+  };
+
+  const getPageSource = (page: KnowledgePage): string => {
+    try {
+      return new URL(page.url).hostname;
+    } catch {
+      return page.url;
     }
   };
 
@@ -797,6 +839,28 @@ export const SettingsApp: React.FC = () => {
                       tasks
                     </span>
                   </label>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[20px] border border-border bg-background/80 p-4">
+                      <p className="text-2xl font-semibold text-foreground">
+                        {memories.length}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Saved of 100 maximum
+                      </p>
+                    </div>
+                    <div className="rounded-[20px] border border-border bg-background/80 p-4">
+                      <p className="text-2xl font-semibold text-foreground">
+                        {
+                          new Set(memories.map((memory) => memory.category))
+                            .size
+                        }
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Memory categories in use
+                      </p>
+                    </div>
+                  </div>
                 </section>
 
                 <section className={cardClassName}>
@@ -859,6 +923,196 @@ export const SettingsApp: React.FC = () => {
                     )}
                   </div>
                 </section>
+              </>
+            )}
+
+            {activeTab === "data" && (
+              <>
+                <section className={cardClassName}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-secondary">
+                        <History className="size-4 text-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          AI conversation
+                        </h3>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          Clear messages from the current AI conversation. Full
+                          chat logs are not stored as browser history.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void runDataAction(
+                          "AI conversation cleared.",
+                          window.settingsAPI.clearChatHistory,
+                        )
+                      }
+                    >
+                      Clear Conversation
+                    </Button>
+                  </div>
+                </section>
+
+                <section className={cardClassName}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-secondary">
+                        <BookOpen className="size-4 text-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Saved pages
+                        </h3>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          Manage pages saved for local AI knowledge and
+                          retrieval.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={knowledgePages.length === 0}
+                      onClick={() =>
+                        void runDataAction(
+                          "All saved pages cleared.",
+                          async () => {
+                            const pages =
+                              await window.settingsAPI.clearKnowledgePages();
+                            setKnowledgePages(pages);
+                          },
+                        )
+                      }
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {knowledgePages.length > 0 ? (
+                      knowledgePages.map((page) => (
+                        <div
+                          key={page.id}
+                          className="flex items-start justify-between gap-3 rounded-[20px] border border-border bg-background/80 p-4"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {page.title || "Untitled page"}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {getPageSource(page)}
+                            </p>
+                            {page.note && (
+                              <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                                {page.note}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              void runDataAction(
+                                "Saved page deleted.",
+                                async () => {
+                                  const pages =
+                                    await window.settingsAPI.deleteKnowledgePage(
+                                      page.id,
+                                    );
+                                  setKnowledgePages(pages);
+                                },
+                              )
+                            }
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-[20px] border border-dashed border-border bg-background/60 p-4 text-sm text-muted-foreground">
+                        No pages saved for AI knowledge.
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className={cardClassName}>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-secondary">
+                      <HardDrive className="size-4 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Website data
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Remove cached files or sign out of websites by clearing
+                        cookies and local site storage.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[20px] border border-border bg-background/80 p-4">
+                      <p className="text-sm font-medium text-foreground">
+                        Cached files
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Frees cached network data without removing sign-ins.
+                      </p>
+                      <Button
+                        className="mt-4"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void runDataAction(
+                            "Browser cache cleared.",
+                            window.settingsAPI.clearCache,
+                          )
+                        }
+                      >
+                        Clear Cache
+                      </Button>
+                    </div>
+
+                    <div className="rounded-[20px] border border-border bg-background/80 p-4">
+                      <p className="text-sm font-medium text-foreground">
+                        Cookies and site storage
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Signs you out and removes website-local data.
+                      </p>
+                      <Button
+                        className="mt-4"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void runDataAction(
+                            "Cookies and site storage cleared.",
+                            window.settingsAPI.clearSiteData,
+                          )
+                        }
+                      >
+                        Clear Site Data
+                      </Button>
+                    </div>
+                  </div>
+                </section>
+
+                {dataActionStatus && (
+                  <div
+                    role="status"
+                    className="rounded-[20px] border border-border bg-card/80 px-4 py-3 text-sm text-muted-foreground"
+                  >
+                    {dataActionStatus}
+                  </div>
+                )}
               </>
             )}
           </div>

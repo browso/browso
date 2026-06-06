@@ -1,4 +1,4 @@
-import { ipcMain, WebContents } from "electron";
+import { ipcMain, session, WebContents } from "electron";
 import type { Window } from "./Window";
 import { AISettingsStore } from "./AISettings";
 import { logger } from "./Logger";
@@ -64,6 +64,9 @@ export class EventManager {
     "update-install",
     "update-dismiss",
     "update-open-release-page",
+    "settings-clear-chat-history",
+    "settings-clear-site-data",
+    "settings-clear-cache",
     "get-page-content",
     "get-page-text",
     "get-current-url",
@@ -77,6 +80,7 @@ export class EventManager {
     "knowledge-save-current",
     "knowledge-search",
     "knowledge-delete",
+    "knowledge-clear",
   ] as const;
   private readonly getMainWindow: () => Window | null;
   private settingsStore: AISettingsStore;
@@ -140,6 +144,9 @@ export class EventManager {
     // Memory events
     this.handleMemoryEvents();
 
+    // Data management events
+    this.handleDataManagementEvents();
+
     // Page content events
     this.handlePageContentEvents();
     this.handlePlatformLayerEvents();
@@ -165,6 +172,37 @@ export class EventManager {
     ipcMain.handle("memory-clear", () => {
       logger.info("Memory cleared");
       return this.memoryStore.clear();
+    });
+  }
+
+  private handleDataManagementEvents(): void {
+    ipcMain.handle("settings-clear-chat-history", () => {
+      this.logChannel("settings-clear-chat-history");
+      this.requireMainWindow().sidebar.client.clearMessages();
+      return { cleared: true };
+    });
+
+    ipcMain.handle("settings-clear-site-data", async () => {
+      this.logChannel("settings-clear-site-data");
+      await session.defaultSession.clearStorageData({
+        storages: [
+          "cookies",
+          "filesystem",
+          "indexdb",
+          "localstorage",
+          "shadercache",
+          "websql",
+          "serviceworkers",
+          "cachestorage",
+        ],
+      });
+      return { cleared: true };
+    });
+
+    ipcMain.handle("settings-clear-cache", async () => {
+      this.logChannel("settings-clear-cache");
+      await session.defaultSession.clearCache();
+      return { cleared: true };
     });
   }
 
@@ -773,6 +811,11 @@ export class EventManager {
         "knowledge-delete",
       );
       return this.knowledgeStore.delete(validatedId);
+    });
+
+    ipcMain.handle("knowledge-clear", () => {
+      this.logChannel("knowledge-clear");
+      return this.knowledgeStore.clear();
     });
   }
 
