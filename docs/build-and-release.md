@@ -173,15 +173,17 @@ certificate. Keep all certificate and API-key material out of the repository.
 When all secrets are configured, the release job forces code signing and
 refuses to upload a DMG that fails signature, notarization, or Gatekeeper
 verification. When one or more secrets are absent, it emits a warning and
-packages an unsigned, unnotarized DMG instead.
+packages an ad-hoc signed, unnotarized DMG instead. Ad-hoc signing keeps the
+Electron application and its nested frameworks internally valid, but users
+must still approve the app through Finder or macOS Privacy & Security.
 
 ## Failure Behavior
 
 - A bootstrap failure prevents all later jobs.
 - A test failure prevents all release builds.
 - A packaging failure does not cancel the other matrix builds.
-- Missing Apple credentials produce unsigned macOS packages without cancelling
-  the other matrix builds.
+- Missing Apple credentials produce ad-hoc signed macOS packages without
+  cancelling the other matrix builds.
 - Invalid configured Apple credentials can still fail the affected macOS build.
 - Signature, notarization, stapling, or Gatekeeper failures prevent upload.
 - Failure of any platform prevents publication.

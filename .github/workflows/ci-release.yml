@@ -173,16 +173,15 @@ jobs:
           --config.forceCodeSigning=true
           --config.directories.output=release/${{ matrix.arch }}
 
-      - name: Package unsigned macOS DMG
+      - name: Package ad-hoc signed macOS DMG
         if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: >
           npx electron-builder
           --mac dmg
           --${{ matrix.arch }}
           -c browso-builder.yml
-          --config.mac.identity=null
+          --config.mac.identity=-
+          --config.mac.hardenedRuntime=false
           --config.mac.notarize=false
           --config.directories.output=release/${{ matrix.arch }}
 
@@ -221,6 +220,12 @@ jobs:
           bash scripts/verify-macos-release.sh
           "release-assets/${{ matrix.asset }}"
           "$APPLE_TEAM_ID"
+
+      - name: Verify ad-hoc macOS signature
+        if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
+        run: >
+          bash scripts/verify-macos-adhoc-release.sh
+          "release-assets/${{ matrix.asset }}"
 
       - name: Upload packaged application
         uses: actions/upload-artifact@v4
@@ -278,7 +283,8 @@ jobs:
 
           macOS builds are signed, notarized, and Gatekeeper-verified when the
           repository's Apple signing credentials are configured. Otherwise the
-          workflow publishes unsigned macOS builds.
+          workflow publishes ad-hoc signed builds that users can approve with
+          Finder's Open command or in System Settings.
           EOF
 
       - name: Replace rolling latest release
