@@ -1,0 +1,229 @@
+name: Build, Test, Release
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: naviq-ci-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bootstrap:
+    name: 1. Bootstrap & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+  testing:
+    name: 2. Testing
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type checks
+        run: npm run typecheck
+
+      - name: Run automated tests
+        run: npm run test:smoke
+
+  package_macos:
+    name: 3. Release Build - ${{ matrix.label }}
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: testing
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Apple Silicon
+            runner: macos-15
+            arch: arm64
+            asset: Naviq-macOS-Apple-Silicon.dmg
+          - label: Intel
+            runner: macos-15-intel
+            arch: x64
+            asset: Naviq-macOS-Intel.dmg
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Apple signing and notarization
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          required=(
+            MACOS_CERTIFICATE_P12
+            MACOS_CERTIFICATE_PASSWORD
+            APPLE_API_KEY_P8
+            APPLE_API_KEY_ID
+            APPLE_API_ISSUER
+            APPLE_TEAM_ID
+          )
+
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+
+          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$api_key_path"
+          chmod 600 "$api_key_path"
+
+          {
+            echo "CSC_LINK=$MACOS_CERTIFICATE_P12"
+            echo "CSC_KEY_PASSWORD=$MACOS_CERTIFICATE_PASSWORD"
+            echo "APPLE_API_KEY=$api_key_path"
+            echo "APPLE_API_KEY_ID=$APPLE_API_KEY_ID"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+
+      - name: Build application
+        run: npm run build
+
+      - name: Sign, notarize, and package macOS DMG
+        run: >
+          npx electron-builder
+          --mac dmg
+          --${{ matrix.arch }}
+          --config.forceCodeSigning=true
+          --config.directories.output=release/${{ matrix.arch }}
+
+      - name: Prepare release asset
+        run: |
+          mkdir -p release-assets
+          dmg_path="$(find "release/${{ matrix.arch }}" -type f -name '*.dmg' -print -quit)"
+          if [ -z "$dmg_path" ]; then
+            echo "No DMG was produced."
+            exit 1
+          fi
+          cp "$dmg_path" "release-assets/${{ matrix.asset }}"
+
+      - name: Verify Gatekeeper acceptance
+        run: >
+          bash scripts/verify-macos-release.sh
+          "release-assets/${{ matrix.asset }}"
+          "$APPLE_TEAM_ID"
+
+      - name: Upload packaged application
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: release-assets/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish_latest:
+    name: 4. Publish Latest Release
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: package_macos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download macOS packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        run: |
+          test -f release-assets/Naviq-macOS-Apple-Silicon.dmg
+          test -f release-assets/Naviq-macOS-Intel.dmg
+          shasum -a 256 release-assets/*.dmg | tee release-assets/SHA256SUMS.txt
+
+      - name: Read application version
+        run: echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Write release notes
+        run: |
+          cat > release-notes.md <<EOF
+          Rolling Naviq ${APP_VERSION} macOS build from commit \`${GITHUB_SHA}\`.
+
+          ## Downloads
+
+          - **Apple Silicon:** \`Naviq-macOS-Apple-Silicon.dmg\`
+          - **Intel:** \`Naviq-macOS-Intel.dmg\`
+          - **Checksums:** \`SHA256SUMS.txt\`
+
+          Both builds are signed with an Apple Developer ID certificate,
+          notarized by Apple, stapled, and verified with Gatekeeper before
+          publication.
+          EOF
+
+      - name: Replace rolling latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          git push origin :refs/tags/latest || true
+          gh release create latest \
+            release-assets/Naviq-macOS-Apple-Silicon.dmg \
+            release-assets/Naviq-macOS-Intel.dmg \
+            release-assets/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "Naviq ${APP_VERSION} Latest" \
+            --notes-file release-notes.md \
+            --latest
