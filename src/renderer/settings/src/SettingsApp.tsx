@@ -161,6 +161,30 @@ export const SettingsApp: React.FC = () => {
   const updateCheckedLabel = updateState?.checkedAt
     ? new Date(updateState.checkedAt).toLocaleString()
     : "Not checked yet";
+  const updateStatusLabel = (() => {
+    switch (updateState?.status) {
+      case "checking":
+        return "Checking for updates...";
+      case "available":
+        return `Version ${updateState.latestVersion} is available`;
+      case "downloading":
+        return `Downloading update${
+          updateState.downloadPercent === null
+            ? "..."
+            : `: ${Math.round(updateState.downloadPercent)}%`
+        }`;
+      case "downloaded":
+        return `Version ${updateState.latestVersion} is ready to install`;
+      case "installing":
+        return "Restarting to install the update...";
+      case "unsupported":
+        return "Manual update required for this installation";
+      case "error":
+        return "Automatic update failed";
+      default:
+        return "You are on the latest known version";
+    }
+  })();
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
@@ -240,14 +264,19 @@ export const SettingsApp: React.FC = () => {
                           Updates
                         </h3>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          Check GitHub releases and open the latest published
-                          download page.
+                          Download and install new versions without removing
+                          your current application.
                         </p>
                       </div>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={
+                        updateState?.checking ||
+                        updateState?.status === "downloading" ||
+                        updateState?.status === "installing"
+                      }
                       onClick={() =>
                         void window.settingsAPI
                           .checkForUpdates()
@@ -262,11 +291,7 @@ export const SettingsApp: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-foreground">
-                          {updateState?.hasUpdate
-                            ? `Version ${updateState.latestVersion} is available`
-                            : updateState?.error
-                              ? "Update status unavailable"
-                              : "You are on the latest known version"}
+                          {updateStatusLabel}
                         </p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           Current version:{" "}
@@ -276,7 +301,7 @@ export const SettingsApp: React.FC = () => {
                           Last checked: {updateCheckedLabel}
                         </p>
                       </div>
-                      {updateState?.hasUpdate && (
+                      {updateState?.status === "available" && (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="secondary"
@@ -293,14 +318,51 @@ export const SettingsApp: React.FC = () => {
                             variant="default"
                             size="sm"
                             onClick={() =>
-                              void window.settingsAPI.openReleasePage()
+                              void window.settingsAPI
+                                .downloadUpdate()
+                                .then(setUpdateState)
                             }
                           >
                             Update Now
                           </Button>
                         </div>
                       )}
+                      {updateState?.status === "downloaded" && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() =>
+                            void window.settingsAPI
+                              .installUpdate()
+                              .then(setUpdateState)
+                          }
+                        >
+                          Restart and Install
+                        </Button>
+                      )}
+                      {(updateState?.status === "unsupported" ||
+                        updateState?.status === "error") && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() =>
+                            void window.settingsAPI.openReleasePage()
+                          }
+                        >
+                          Open Release Page
+                        </Button>
+                      )}
                     </div>
+                    {updateState?.status === "downloading" && (
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full bg-foreground transition-[width]"
+                          style={{
+                            width: `${updateState.downloadPercent ?? 0}%`,
+                          }}
+                        />
+                      </div>
+                    )}
                     {updateState?.releaseName && (
                       <p className="mt-3 text-xs text-muted-foreground">
                         Latest release: {updateState.releaseName}

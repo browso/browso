@@ -15,13 +15,18 @@ asarUnpack:
 win:
   executableName: Browso
   icon: resources/icon.png
+  artifactName: browso-${version}-win-${arch}.${ext}
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: browso-${version}-win-${arch}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
   icon: resources/icon.png
+  target:
+    - dmg
+    - zip
+  artifactName: browso-${version}-mac-${arch}.${ext}
   type: distribution
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
@@ -33,7 +38,7 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: browso-${version}-mac-${arch}.${ext}
 linux:
   executableName: Browso
   icon: resources/icon.png
@@ -44,8 +49,9 @@ linux:
   maintainer: Xaroq
   category: Utility
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: browso-${version}-linux-${arch}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Browso
+  repo: browso

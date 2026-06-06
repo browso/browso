@@ -33,9 +33,20 @@ interface AppSettings {
 }
 
 interface UpdateState {
+  status:
+    | "idle"
+    | "checking"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "installing"
+    | "unsupported"
+    | "error";
   checking: boolean;
   hasUpdate: boolean;
   dismissed: boolean;
+  canAutoUpdate: boolean;
+  downloadPercent: number | null;
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;

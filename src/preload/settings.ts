@@ -31,9 +31,20 @@ interface AppSettings {
 }
 
 interface UpdateState {
+  status:
+    | "idle"
+    | "checking"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "installing"
+    | "unsupported"
+    | "error";
   checking: boolean;
   hasUpdate: boolean;
   dismissed: boolean;
+  canAutoUpdate: boolean;
+  downloadPercent: number | null;
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
@@ -58,6 +69,8 @@ const settingsAPI = {
   clearMemories: () => browsoAPI.ipcRenderer.invoke("memory-clear"),
   getUpdateState: () => browsoAPI.ipcRenderer.invoke("update-state-get"),
   checkForUpdates: () => browsoAPI.ipcRenderer.invoke("update-check"),
+  downloadUpdate: () => browsoAPI.ipcRenderer.invoke("update-download"),
+  installUpdate: () => browsoAPI.ipcRenderer.invoke("update-install"),
   dismissUpdate: () => browsoAPI.ipcRenderer.invoke("update-dismiss"),
   openReleasePage: () =>
     browsoAPI.ipcRenderer.invoke("update-open-release-page"),

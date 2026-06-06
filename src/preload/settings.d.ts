@@ -25,9 +25,20 @@ interface MemoryEntry {
 }
 
 interface UpdateState {
+  status:
+    | "idle"
+    | "checking"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "installing"
+    | "unsupported"
+    | "error";
   checking: boolean;
   hasUpdate: boolean;
   dismissed: boolean;
+  canAutoUpdate: boolean;
+  downloadPercent: number | null;
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
@@ -52,6 +63,8 @@ interface SettingsAPI {
   clearMemories: () => Promise<MemoryEntry[]>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
+  downloadUpdate: () => Promise<UpdateState>;
+  installUpdate: () => Promise<UpdateState>;
   dismissUpdate: () => Promise<UpdateState>;
   openReleasePage: () => Promise<void>;
   onAppSettingsUpdated: (

@@ -10,9 +10,6 @@ on:
 permissions:
   contents: read
 
-env:
-  RELEASE_TAG: v1.0.0-beta
-
 concurrency:
   group: naviq-ci-release-${{ github.ref }}
   cancel-in-progress: true
@@ -110,6 +107,7 @@ jobs:
             artifact: macos-arm64
             asset: browso-mac-apple-silicon.dmg
             pattern: "*.dmg"
+            channel: mac-arm64
           - label: Intel
             runner: macos-15-intel
             platform: mac
@@ -117,6 +115,7 @@ jobs:
             artifact: macos-x64
             asset: browso-mac-mac-intel.dmg
             pattern: "*.dmg"
+            channel: mac-x64
           - label: Windows x64
             runner: windows-latest
             platform: win
@@ -124,6 +123,7 @@ jobs:
             artifact: windows-x64
             asset: browso-win-x64.exe
             pattern: "*.exe"
+            channel: win-x64
           - label: Linux x64
             runner: ubuntu-latest
             platform: linux
@@ -131,6 +131,7 @@ jobs:
             artifact: linux-x64
             asset: browso-linux-x86-64.AppImage
             pattern: "*.AppImage"
+            channel: linux-x64
 
     steps:
       - name: Check out repository
@@ -198,9 +199,11 @@ jobs:
         if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED == 'true'
         run: >
           npx electron-builder
-          --mac dmg
+          --mac dmg zip
           --${{ matrix.arch }}
           -c browso-builder.yml
+          --publish never
+          --config.publish.channel=${{ matrix.channel }}
           --config.forceCodeSigning=true
           --config.directories.output=release/${{ matrix.arch }}
 
@@ -208,9 +211,11 @@ jobs:
         if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
         run: >
           npx electron-builder
-          --mac dmg
+          --mac dmg zip
           --${{ matrix.arch }}
           -c browso-builder.yml
+          --publish never
+          --config.publish.channel=${{ matrix.channel }}
           --config.mac.identity=-
           --config.mac.hardenedRuntime=false
           --config.mac.notarize=false
@@ -223,6 +228,8 @@ jobs:
           --win nsis
           --${{ matrix.arch }}
           -c browso-builder.yml
+          --publish never
+          --config.publish.channel=${{ matrix.channel }}
           --config.directories.output=release/${{ matrix.arch }}
 
       - name: Package Linux AppImage
@@ -232,6 +239,8 @@ jobs:
           --linux AppImage
           --${{ matrix.arch }}
           -c browso-builder.yml
+          --publish never
+          --config.publish.channel=${{ matrix.channel }}
           --config.directories.output=release/${{ matrix.arch }}
 
       - name: Test packaged macOS application
@@ -276,6 +285,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
+          find "release/${{ matrix.arch }}" -maxdepth 1 -type f \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \
+               -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+            -exec cp {} release-assets/ \;
           package_path="$(find "release/${{ matrix.arch }}" -type f -name '${{ matrix.pattern }}' -print -quit)"
           if [ -z "$package_path" ]; then
             echo "No ${{ matrix.pattern }} package was produced."
@@ -300,12 +313,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.artifact }}
-          path: release-assets/${{ matrix.asset }}
+          path: release-assets/*
           if-no-files-found: error
           retention-days: 7
 
   publish_release:
-    name: 4. Publish v1.0.0-beta
+    name: 4. Publish Release
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: package
     runs-on: ubuntu-latest
@@ -326,24 +339,36 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Resolve release version
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v$version" >> "$GITHUB_ENV"
+          if [[ "$version" == *-* ]]; then
+            echo "RELEASE_IS_PRERELEASE=true" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_IS_PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
+
       - name: Verify release assets
         run: |
           test -f release-assets/browso-linux-x86-64.AppImage
           test -f release-assets/browso-mac-apple-silicon.dmg
           test -f release-assets/browso-mac-mac-intel.dmg
           test -f release-assets/browso-win-x64.exe
-          find release-assets -maxdepth 1 -type f ! -name 'browso-linux-x86-64.AppImage' ! -name 'browso-mac-apple-silicon.dmg' ! -name 'browso-mac-mac-intel.dmg' ! -name 'browso-win-x64.exe' -delete
-          sha256sum \
-            release-assets/browso-linux-x86-64.AppImage \
-            release-assets/browso-mac-apple-silicon.dmg \
-            release-assets/browso-mac-mac-intel.dmg \
-            release-assets/browso-win-x64.exe \
-            > release-assets/SHA256SUMS.txt
+          test -f release-assets/mac-arm64-mac.yml
+          test -f release-assets/mac-x64-mac.yml
+          test -f release-assets/win-x64.yml
+          test -f release-assets/linux-x64-linux.yml
+          find release-assets -maxdepth 1 -type f \
+            ! -name '*.yml' ! -name '*.blockmap' ! -name 'SHA256SUMS.txt' \
+            -print0 | sort -z | xargs -0 sha256sum > release-assets/SHA256SUMS.txt
 
       - name: Write release notes
         run: |
           cat > release-notes.md <<EOF
-          Browso v1.0.0 beta.
+          Browso ${RELEASE_TAG}.
 
           ## Downloads
 
@@ -352,21 +377,29 @@ jobs:
           - \`browso-mac-mac-intel.dmg\`
           - \`browso-win-x64.exe\`
           - **Checksums:** \`SHA256SUMS.txt\`
+
+          Installed applications use the architecture-specific update metadata
+          in this release to download and install updates in place.
           EOF
 
-      - name: Replace beta release
+      - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
-          git push origin ":refs/tags/$RELEASE_TAG" || true
-          gh release create "$RELEASE_TAG" \
-            release-assets/browso-linux-x86-64.AppImage \
-            release-assets/browso-mac-apple-silicon.dmg \
-            release-assets/browso-mac-mac-intel.dmg \
-            release-assets/browso-win-x64.exe \
-            release-assets/SHA256SUMS.txt \
-            --target "$GITHUB_SHA" \
-            --title "$RELEASE_TAG" \
-            --notes-file release-notes.md \
-            --prerelease
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_TAG" \
+              --notes-file release-notes.md
+          else
+            prerelease_args=()
+            if [ "$RELEASE_IS_PRERELEASE" = "true" ]; then
+              prerelease_args+=(--prerelease)
+            fi
+            gh release create "$RELEASE_TAG" \
+              release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TAG" \
+              --notes-file release-notes.md \
+              "${prerelease_args[@]}"
+          fi

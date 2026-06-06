@@ -41,8 +41,8 @@ The release matrix starts only after testing succeeds.
 
 | Package       | GitHub runner    | Target CPU | Format     |
 | ------------- | ---------------- | ---------- | ---------- |
-| Apple Silicon | `macos-15`       | `arm64`    | DMG        |
-| Intel Mac     | `macos-15-intel` | `x64`      | DMG        |
+| Apple Silicon | `macos-15`       | `arm64`    | DMG + ZIP  |
+| Intel Mac     | `macos-15-intel` | `x64`      | DMG + ZIP  |
 | Windows       | `windows-latest` | `x64`      | NSIS setup |
 | Linux         | `ubuntu-latest`  | `x64`      | AppImage   |
 
@@ -76,20 +76,35 @@ browso-win-x64.exe
 SHA256SUMS.txt
 ```
 
-## 4. Beta Release
-
-The publish job downloads all platform artifacts, creates
-`SHA256SUMS.txt`, removes the previous `v1.0.0-beta` release and tag, and
-creates a prerelease targeting the successful commit.
-
-Release URL:
+Each package artifact also contains the updater payload and metadata consumed by
+`electron-updater`:
 
 ```text
-https://github.com/browso/browso/releases/tag/v1.0.0-beta
+mac-arm64-mac.yml
+mac-x64-mac.yml
+win-x64.yml
+linux-x64-linux.yml
+*.zip
+*.blockmap
 ```
 
-The release title and tag are `v1.0.0-beta`. It contains only the four platform
-packages and `SHA256SUMS.txt`, plus GitHub's automatic source code archives.
+## 4. Versioned Release
+
+The publish job downloads all platform artifacts, creates `SHA256SUMS.txt`, and
+publishes a GitHub release whose tag matches the version in `package.json`.
+Existing releases are never deleted. Rerunning the workflow for the same
+version replaces that release's artifacts.
+
+Before shipping an update, increment the version:
+
+```bash
+npm version 1.0.0-beta.2 --no-git-tag-version
+```
+
+An installed application compares that semantic version with its current
+version. It downloads the matching architecture channel, prompts the user, and
+restarts to install in place. User settings and application data remain in the
+Electron user-data directory.
 
 ## Triggers
 
@@ -127,13 +142,13 @@ Application build:
 npm run build
 ```
 
-Apple Silicon DMG:
+Apple Silicon DMG, update ZIP, and metadata:
 
 ```bash
 npm run build:mac:arm64
 ```
 
-Intel DMG:
+Intel DMG, update ZIP, and metadata:
 
 ```bash
 npm run build:mac:x64
@@ -185,6 +200,10 @@ packages an ad-hoc signed, unnotarized DMG instead. Ad-hoc signing keeps the
 Electron application and its nested frameworks internally valid, but users
 must still approve the app through Finder or macOS Privacy & Security.
 
+Production macOS auto-updates require the application to be signed with a
+consistent Developer ID identity. Ad-hoc builds remain manual-update fallbacks
+and must not be treated as production auto-update packages.
+
 ## Failure Behavior
 
 - A bootstrap failure prevents all later jobs.
@@ -200,7 +219,7 @@ must still approve the app through Finder or macOS Privacy & Security.
 - Invalid configured Apple credentials can still fail the affected macOS build.
 - Signature, notarization, stapling, or Gatekeeper failures prevent upload.
 - Failure of any platform prevents publication.
-- The previous `v1.0.0-beta` release is deleted only after all packages have been
-  downloaded and verified by the publish job.
+- Existing versioned releases remain available if a newer build or publication
+  fails.
 
 This preserves the previous downloadable release when build or test work fails.

@@ -60,6 +60,8 @@ export class EventManager {
     "app-settings-update",
     "update-state-get",
     "update-check",
+    "update-download",
+    "update-install",
     "update-dismiss",
     "update-open-release-page",
     "get-page-content",
@@ -183,6 +185,16 @@ export class EventManager {
     ipcMain.handle("update-dismiss", () => {
       this.logChannel("update-dismiss");
       return this.updateManager.dismissUpdate();
+    });
+
+    ipcMain.handle("update-download", async () => {
+      this.logChannel("update-download");
+      return this.updateManager.downloadUpdate();
+    });
+
+    ipcMain.handle("update-install", () => {
+      this.logChannel("update-install");
+      return this.updateManager.installUpdate();
     });
 
     ipcMain.handle("update-open-release-page", async () => {

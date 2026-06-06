@@ -1,19 +1,31 @@
 import { app, dialog, shell } from "electron";
+import {
+  autoUpdater,
+  type AppUpdater,
+  type UpdateInfo,
+} from "electron-updater";
 import { logger } from "./Logger";
 import type { Window } from "./Window";
-import {
-  buildUpdateSnapshot,
-  selectLatestRelease,
-  type ReleaseMetadata,
-} from "./updateState";
 
-const GITHUB_REMOTE_URL = "https://github.com/Xaroq/browso.git";
-const RELEASES_URL = "https://github.com/Xaroq/browso/releases/latest";
+const RELEASES_URL = "https://github.com/Browso/browso/releases";
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "installing"
+  | "unsupported"
+  | "error";
 
 export interface UpdateState {
+  status: UpdateStatus;
   checking: boolean;
   hasUpdate: boolean;
   dismissed: boolean;
+  canAutoUpdate: boolean;
+  downloadPercent: number | null;
   currentVersion: string;
   latestVersion: string | null;
   releaseUrl: string | null;
@@ -27,20 +39,34 @@ type UpdateStateListener = (state: UpdateState) => void;
 
 export class UpdateManager {
   private static instance: UpdateManager | null = null;
-  private state: UpdateState = {
-    checking: false,
-    hasUpdate: false,
-    dismissed: false,
-    currentVersion: app.getVersion(),
-    latestVersion: null,
-    releaseUrl: null,
-    releaseName: null,
-    publishedAt: null,
-    checkedAt: null,
-    error: null,
-  };
+  private readonly updater: AppUpdater;
+  private state: UpdateState;
   private listeners = new Set<UpdateStateListener>();
   private promptShown = false;
+  private restartPromptShown = false;
+  private mainWindow: Window | null = null;
+
+  private constructor(updater: AppUpdater = autoUpdater) {
+    this.updater = updater;
+    const canAutoUpdate = this.getCanAutoUpdate();
+    this.state = {
+      status: canAutoUpdate ? "idle" : "unsupported",
+      checking: false,
+      hasUpdate: false,
+      dismissed: false,
+      canAutoUpdate,
+      downloadPercent: null,
+      currentVersion: app.getVersion(),
+      latestVersion: null,
+      releaseUrl: null,
+      releaseName: null,
+      publishedAt: null,
+      checkedAt: null,
+      error: null,
+    };
+
+    this.configureUpdater();
+  }
 
   static getInstance(): UpdateManager {
     if (!UpdateManager.instance) {
@@ -74,103 +100,86 @@ export class UpdateManager {
     mainWindow?: Window | null;
     promptUser?: boolean;
   }): Promise<UpdateState> {
-    if (this.state.checking) {
+    this.mainWindow = options?.mainWindow ?? this.mainWindow;
+
+    if (!this.state.canAutoUpdate) {
+      this.setState({
+        status: "unsupported",
+        checking: false,
+        checkedAt: Date.now(),
+        error: app.isPackaged
+          ? "Automatic updates are unavailable for this installation. Open the release page to update manually."
+          : "Automatic updates are available only in an installed application.",
+      });
       return this.getState();
     }
 
-    this.setState({ checking: true, error: null });
-
-    try {
-      const response = await fetch(this.getReleasesApiUrl(), {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": `browso/${this.state.currentVersion}`,
-        },
-      });
-
-      if (response.status === 404) {
-        logger.info("No GitHub release found for update check");
-        this.setState({
-          checking: false,
-          hasUpdate: false,
-          dismissed: false,
-          latestVersion: null,
-          releaseUrl: RELEASES_URL,
-          releaseName: null,
-          publishedAt: null,
-          checkedAt: Date.now(),
-          error: "No published GitHub release found yet.",
-        });
-        return this.getState();
-      }
-
-      if (!response.ok) {
-        throw new Error(`GitHub update check failed with ${response.status}`);
-      }
-
-      const releases = (await response.json()) as Array<{
-        draft?: boolean;
-        html_url?: string;
-        name?: string;
-        published_at?: string;
-        prerelease?: boolean;
-        tag_name?: string;
-      }>;
-      const includePrereleases = this.state.currentVersion.includes("-");
-      const release = selectLatestRelease(
-        releases.map((candidate) => ({
-          draft: candidate.draft,
-          htmlUrl: candidate.html_url,
-          name: candidate.name,
-          prerelease: candidate.prerelease,
-          publishedAt: candidate.published_at,
-          tagName: candidate.tag_name,
-        })),
-        includePrereleases,
-      );
-
-      if (!release) {
-        this.setState({
-          checking: false,
-          hasUpdate: false,
-          dismissed: false,
-          latestVersion: null,
-          releaseUrl: RELEASES_URL,
-          releaseName: null,
-          publishedAt: null,
-          checkedAt: Date.now(),
-          error: "No compatible GitHub release found yet.",
-        });
-        return this.getState();
-      }
-
-      const snapshot = buildUpdateSnapshot(
-        this.state,
-        release satisfies ReleaseMetadata,
-        RELEASES_URL,
-        Date.now(),
-      );
-      this.setState(snapshot);
-
-      if (snapshot.hasUpdate && options?.promptUser) {
-        await this.maybePromptForUpdate(options.mainWindow ?? null);
-      }
-    } catch (error) {
-      logger.warn("Update check failed", {
-        error:
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : "Unknown error",
-      });
-      this.setState({
-        checking: false,
-        checkedAt: Date.now(),
-        error: "Could not check GitHub releases right now.",
-      });
+    if (this.state.checking || this.state.status === "downloading") {
+      return this.getState();
     }
 
+    this.promptShown = false;
+    this.setState({
+      status: "checking",
+      checking: true,
+      error: null,
+      checkedAt: Date.now(),
+    });
+
+    try {
+      await this.updater.checkForUpdates();
+      if (
+        options?.promptUser &&
+        this.state.hasUpdate &&
+        this.state.status === "available"
+      ) {
+        await this.maybePromptForUpdate();
+      }
+    } catch (error) {
+      this.handleError(error);
+    }
+
+    return this.getState();
+  }
+
+  async downloadUpdate(): Promise<UpdateState> {
+    if (!this.state.canAutoUpdate) {
+      await this.openReleasePage();
+      return this.getState();
+    }
+
+    if (this.state.status === "downloaded") {
+      return this.getState();
+    }
+
+    if (!this.state.hasUpdate) {
+      return this.checkForUpdates({ mainWindow: this.mainWindow });
+    }
+
+    this.setState({
+      status: "downloading",
+      checking: false,
+      dismissed: false,
+      downloadPercent: 0,
+      error: null,
+    });
+
+    try {
+      await this.updater.downloadUpdate();
+    } catch (error) {
+      this.handleError(error);
+    }
+
+    return this.getState();
+  }
+
+  installUpdate(): UpdateState {
+    if (!this.state.canAutoUpdate || this.state.status !== "downloaded") {
+      return this.getState();
+    }
+
+    this.setState({ status: "installing", error: null });
+    this.updater.quitAndInstall(false, true);
     return this.getState();
   }
 
@@ -178,40 +187,174 @@ export class UpdateManager {
     await shell.openExternal(this.state.releaseUrl || RELEASES_URL);
   }
 
-  private async maybePromptForUpdate(mainWindow: Window | null): Promise<void> {
+  private configureUpdater(): void {
+    this.updater.autoDownload = false;
+    this.updater.autoInstallOnAppQuit = true;
+    this.updater.allowPrerelease = this.state.currentVersion.includes("-");
+    this.updater.channel = this.getUpdateChannel();
+    this.updater.allowDowngrade = false;
+    this.updater.logger = {
+      info: (message?: unknown): void =>
+        logger.info("Updater", { message: String(message ?? "") }),
+      warn: (message?: unknown): void =>
+        logger.warn("Updater", { message: String(message ?? "") }),
+      error: (message?: unknown): void => logger.error("Updater", message),
+      debug: (message?: unknown): void =>
+        logger.info("Updater debug", { message: String(message ?? "") }),
+    };
+
+    this.updater.on("checking-for-update", () => {
+      this.setState({
+        status: "checking",
+        checking: true,
+        error: null,
+      });
+    });
+
+    this.updater.on("update-available", (info) => {
+      this.applyUpdateInfo(info, {
+        status: "available",
+        checking: false,
+        hasUpdate: true,
+        dismissed:
+          this.state.latestVersion === info.version && this.state.dismissed,
+        downloadPercent: null,
+        checkedAt: Date.now(),
+        error: null,
+      });
+    });
+
+    this.updater.on("update-not-available", (info) => {
+      this.applyUpdateInfo(info, {
+        status: "idle",
+        checking: false,
+        hasUpdate: false,
+        dismissed: false,
+        downloadPercent: null,
+        checkedAt: Date.now(),
+        error: null,
+      });
+    });
+
+    this.updater.on("download-progress", (progress) => {
+      this.setState({
+        status: "downloading",
+        checking: false,
+        downloadPercent: Math.max(0, Math.min(100, progress.percent)),
+      });
+    });
+
+    this.updater.on("update-downloaded", (info) => {
+      this.applyUpdateInfo(info, {
+        status: "downloaded",
+        checking: false,
+        hasUpdate: true,
+        dismissed: false,
+        downloadPercent: 100,
+        error: null,
+      });
+      void this.maybePromptForRestart();
+    });
+
+    this.updater.on("update-cancelled", () => {
+      this.setState({
+        status: "available",
+        checking: false,
+        downloadPercent: null,
+        error: "The update download was cancelled.",
+      });
+    });
+
+    this.updater.on("error", (error) => {
+      this.handleError(error);
+    });
+  }
+
+  private async maybePromptForUpdate(): Promise<void> {
     if (
       !this.state.hasUpdate ||
       this.state.dismissed ||
       this.promptShown ||
-      !mainWindow
+      !this.mainWindow
     ) {
       return;
     }
 
     this.promptShown = true;
-
-    const { response } = await dialog.showMessageBox(mainWindow.baseWindow, {
-      type: "info",
-      buttons: ["Update Now", "Later", "Open Settings"],
-      defaultId: 0,
-      cancelId: 1,
-      title: "Update Available",
-      message: `Browso ${this.state.latestVersion} is available.`,
-      detail: `You are currently on version ${this.state.currentVersion}.`,
-      noLink: true,
-    });
+    const { response } = await dialog.showMessageBox(
+      this.mainWindow.baseWindow,
+      {
+        type: "info",
+        buttons: ["Download Update", "Later", "Open Settings"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Update Available",
+        message: `Browso ${this.state.latestVersion} is available.`,
+        detail:
+          "The update can be downloaded and installed without removing the current application.",
+        noLink: true,
+      },
+    );
 
     if (response === 0) {
-      await this.openReleasePage();
-      this.dismissUpdate();
+      await this.downloadUpdate();
       return;
     }
 
     if (response === 2) {
-      mainWindow.browserSettings.show();
+      this.mainWindow.browserSettings.show();
     }
 
     this.dismissUpdate();
+  }
+
+  private async maybePromptForRestart(): Promise<void> {
+    if (this.restartPromptShown || !this.mainWindow) {
+      return;
+    }
+
+    this.restartPromptShown = true;
+    const { response } = await dialog.showMessageBox(
+      this.mainWindow.baseWindow,
+      {
+        type: "info",
+        buttons: ["Restart and Install", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Update Ready",
+        message: `Browso ${this.state.latestVersion} is ready to install.`,
+        detail:
+          "Restart now to replace the installed application while keeping your settings and data.",
+        noLink: true,
+      },
+    );
+
+    if (response === 0) {
+      this.installUpdate();
+    }
+  }
+
+  private applyUpdateInfo(info: UpdateInfo, patch: Partial<UpdateState>): void {
+    this.setState({
+      latestVersion: info.version,
+      releaseUrl: this.getReleaseUrl(info.version),
+      releaseName: info.releaseName || `v${info.version}`,
+      publishedAt: info.releaseDate || null,
+      ...patch,
+    });
+  }
+
+  private handleError(error: unknown): void {
+    const message =
+      error instanceof Error ? error.message : String(error ?? "Unknown error");
+    logger.warn("Automatic update failed", { error: message });
+    this.setState({
+      status: "error",
+      checking: false,
+      downloadPercent: null,
+      checkedAt: Date.now(),
+      error: `${message} You can still update from the release page.`,
+    });
   }
 
   private setState(patch: Partial<UpdateState>): void {
@@ -225,17 +368,31 @@ export class UpdateManager {
     }
   }
 
-  private getReleasesApiUrl(): string {
-    const repoPath = this.extractRepoPath(GITHUB_REMOTE_URL);
-    return `https://api.github.com/repos/${repoPath}/releases?per_page=20`;
-  }
-
-  private extractRepoPath(remoteUrl: string): string {
-    const match = remoteUrl.match(/github\.com[:/](.+?)(?:\.git)?$/);
-    if (!match) {
-      throw new Error("Invalid GitHub remote URL");
+  private getCanAutoUpdate(): boolean {
+    if (!app.isPackaged) {
+      return false;
     }
 
-    return match[1];
+    if (process.platform === "darwin" || process.platform === "win32") {
+      return true;
+    }
+
+    return process.platform === "linux" && Boolean(process.env.APPIMAGE);
+  }
+
+  private getUpdateChannel(): string {
+    if (process.platform === "darwin") {
+      return `mac-${process.arch}`;
+    }
+
+    if (process.platform === "win32") {
+      return `win-${process.arch}`;
+    }
+
+    return `linux-${process.arch}`;
+  }
+
+  private getReleaseUrl(version: string): string {
+    return `https://github.com/Browso/browso/releases/tag/v${version}`;
   }
 }
