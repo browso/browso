@@ -170,16 +170,19 @@ The certificate must be a **Developer ID Application** certificate for direct
 distribution, not an Apple Development, Apple Distribution, or Mac App Store
 certificate. Keep all certificate and API-key material out of the repository.
 
-The release job fails immediately when any secret is absent. It also forces
-code signing and refuses to upload a DMG that fails signature, notarization, or
-Gatekeeper verification.
+When all secrets are configured, the release job forces code signing and
+refuses to upload a DMG that fails signature, notarization, or Gatekeeper
+verification. When one or more secrets are absent, it emits a warning and
+packages an unsigned, unnotarized DMG instead.
 
 ## Failure Behavior
 
 - A bootstrap failure prevents all later jobs.
 - A test failure prevents all release builds.
 - A packaging failure does not cancel the other matrix builds.
-- Missing or invalid Apple credentials prevent packaging.
+- Missing Apple credentials produce unsigned macOS packages without cancelling
+  the other matrix builds.
+- Invalid configured Apple credentials can still fail the affected macOS build.
 - Signature, notarization, stapling, or Gatekeeper failures prevent upload.
 - Failure of any platform prevents publication.
 - The previous `latest` release is deleted only after all packages have been
