@@ -69,12 +69,20 @@ or startup crash therefore prevents publication.
 The resulting workflow artifacts are:
 
 ```text
+benchmarks-<commit>/browso.json
 browso-linux-x86-64.AppImage
 browso-mac-apple-silicon.dmg
 browso-mac-mac-intel.dmg
 browso-win-x64.exe
 SHA256SUMS.txt
 ```
+
+The final benchmark job starts only after code quality, application build, and
+automated tests pass. On release runs it also waits for every platform package
+and the GitHub release to complete. Its JSON artifact records uncached linting,
+format verification, separate Node and renderer typechecks, tests, production
+bundling, bundle and source breakdowns, largest generated files, and dependency
+counts.
 
 Each package artifact also contains the updater payload and metadata consumed by
 `electron-updater`:

@@ -65,7 +65,7 @@ jobs:
         run: npm run build
 
   testing:
-    name: 2. Testing
+    name: 3. Testing
     needs: bootstrap
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -90,7 +90,7 @@ jobs:
         run: npm run test:smoke
 
   package:
-    name: 3. Release Build - ${{ matrix.label }}
+    name: 4. Release Build - ${{ matrix.label }}
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: testing
     runs-on: ${{ matrix.runner }}
@@ -318,7 +318,7 @@ jobs:
           retention-days: 7
 
   publish_release:
-    name: 4. Publish Release
+    name: 5. Publish Release
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: package
     runs-on: ubuntu-latest
@@ -404,13 +404,61 @@ jobs:
               "${prerelease_args[@]}"
           fi
 
+  benchmarks:
+    name: 6. Final Benchmarks
+    if: >-
+      always() &&
+      needs.quality.result == 'success' &&
+      needs.bootstrap.result == 'success' &&
+      needs.testing.result == 'success' &&
+      (needs.package.result == 'success' || needs.package.result == 'skipped') &&
+      (needs.publish_release.result == 'success' || needs.publish_release.result == 'skipped')
+    needs:
+      - quality
+      - bootstrap
+      - testing
+      - package
+      - publish_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run final benchmarks
+        env:
+          BROWSO_SHA: ${{ github.sha }}
+          BROWSO_REF: ${{ github.ref }}
+          BROWSO_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          BROWSO_WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: npm run benchmark
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-${{ github.sha }}
+          path: benchmark-results/browso.json
+          if-no-files-found: error
+          retention-days: 30
+
   notify_benchmarks:
-    name: 5. Start Benchmarks
+    name: 7. Notify Benchmark Repository
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs:
       - quality
       - bootstrap
       - testing
+      - benchmarks
       - package
       - publish_release
     runs-on: ubuntu-latest

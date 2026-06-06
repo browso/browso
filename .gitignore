@@ -34,6 +34,7 @@ latest*.yml
 *.tsbuildinfo
 
 # Test output and coverage
+benchmark-results/
 coverage/
 .nyc_output/
 test-results/
