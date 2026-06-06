@@ -5,6 +5,7 @@ import { SideBar } from "./SideBar";
 import { AISettingsStore } from "./AISettings";
 import { BrowserSettings } from "./BrowserSettings";
 import { attachExternalWindowOpenHandler } from "./windowOpenHandler";
+import { APP_ICON_PATH } from "./appIcon";
 
 export class Window {
   private _baseWindow: BaseWindow;
@@ -23,6 +24,7 @@ export class Window {
       height: 800,
       show: options.show ?? true,
       autoHideMenuBar: false,
+      icon: APP_ICON_PATH,
       titleBarStyle: "hidden",
       ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),
       trafficLightPosition: { x: 15, y: 13 },

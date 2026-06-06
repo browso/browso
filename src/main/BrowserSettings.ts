@@ -1,6 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { BaseWindow, BrowserWindow } from "electron";
 import { join } from "path";
+import { APP_ICON_PATH } from "./appIcon";
 
 export class BrowserSettings {
   private readonly parentWindow: BaseWindow;
@@ -22,6 +23,7 @@ export class BrowserSettings {
       minHeight: 620,
       show: false,
       autoHideMenuBar: true,
+      icon: APP_ICON_PATH,
       title: "",
       parent: this.parentWindow,
       backgroundColor: "#0b1020",

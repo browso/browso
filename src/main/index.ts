@@ -5,6 +5,7 @@ import { AppMenu } from "./Menu";
 import { EventManager } from "./EventManager";
 import { logger } from "./Logger";
 import { UpdateManager } from "./UpdateManager";
+import { APP_ICON_PATH } from "./appIcon";
 
 const STARTUP_SMOKE_TEST = process.argv.includes("--smoke-test");
 const STARTUP_SMOKE_TIMEOUT_MS = 20_000;
@@ -122,6 +123,9 @@ registerProcessLogging();
 
 app.whenReady().then(() => {
   browsoApp.setAppUserModelId("com.browso.browser");
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(APP_ICON_PATH);
+  }
   logger.info("App ready");
   eventManager = new EventManager(() => mainWindow);
 
