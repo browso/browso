@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAllowedNavigationTarget } from "./navigationPolicy.ts";
 
 const providerSchema = z.enum(["ollama", "openai", "anthropic"]);
 const searchEngineSchema = z.enum(["google", "duckduckgo", "bing"]);
@@ -15,19 +16,7 @@ const navigationTargetSchema = z
   .string()
   .trim()
   .min(1)
-  .refine((value) => {
-    if (value === "browso://welcome" || value === "blueberry://welcome") {
-      return true;
-    }
-
-    try {
-      // Allow standard browser-accepted URLs only.
-      const url = new URL(value);
-      return url.protocol.length > 0;
-    } catch {
-      return false;
-    }
-  }, "Invalid URL");
+  .refine(isAllowedNavigationTarget, "Unsupported navigation URL");
 
 export const ipcSchemas = {
   optionalNavigationTarget: navigationTargetSchema.optional(),

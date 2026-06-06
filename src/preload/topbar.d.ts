@@ -1,5 +1,3 @@
-import { ElectronAPI as BrowsoAPI } from "@electron-toolkit/preload";
-
 interface TabInfo {
   id: string;
   title: string;
@@ -78,9 +76,16 @@ interface TopBarAPI {
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void;
 }
 
+interface DarkModeAPI {
+  setDarkMode: (isDarkMode: boolean) => void;
+  onDarkModeChanged: (callback: (isDarkMode: boolean) => void) => () => void;
+}
+
 declare global {
   interface Window {
-    browso: BrowsoAPI;
     topBarAPI: TopBarAPI;
+    darkModeAPI: DarkModeAPI;
   }
 }
+
+export {};

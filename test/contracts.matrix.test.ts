@@ -73,9 +73,6 @@ const navigationUrls = [
   LEGACY_BLUEBERRY_WELCOME_URL,
   "https://example.com",
   "http://localhost:3000",
-  "file:///tmp/example.txt",
-  "about:blank",
-  "mailto:test@example.com",
 ] as const;
 for (const url of navigationUrls) {
   test(`navigation schema accepts ${url}`, () => {
@@ -88,6 +85,12 @@ const invalidNavigation = [
   " ",
   "example.com",
   "not a url",
+  "javascript:alert(1)",
+  "file:///tmp/example.txt",
+  "data:text/html,<script>alert(1)</script>",
+  "about:blank",
+  "mailto:test@example.com",
+  "devtools://devtools/bundled/inspector.html",
   42,
   null,
   {},

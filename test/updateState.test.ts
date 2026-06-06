@@ -3,12 +3,30 @@ import assert from "node:assert/strict";
 import {
   buildUpdateSnapshot,
   compareVersions,
+  selectLatestRelease,
 } from "../src/main/updateState.ts";
 
 test("compareVersions handles semantic version ordering", () => {
   assert.equal(compareVersions("1.2.0", "1.1.9"), 1);
   assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
   assert.equal(compareVersions("1.0.0", "1.0.1"), -1);
+  assert.equal(compareVersions("1.0.0-beta.2", "1.0.0-beta.1"), 1);
+  assert.equal(compareVersions("1.0.0", "1.0.0-beta.2"), 1);
+  assert.equal(compareVersions("1.0.1-beta.1", "1.0.0"), 1);
+});
+
+test("selectLatestRelease respects stable and beta channels", () => {
+  const releases = [
+    { tagName: "v1.0.0", prerelease: false },
+    { tagName: "v1.1.0-beta.1", prerelease: true },
+    { tagName: "v2.0.0", prerelease: false, draft: true },
+  ];
+
+  assert.equal(selectLatestRelease(releases, false)?.tagName, "v1.0.0");
+  assert.equal(
+    selectLatestRelease(releases, true)?.tagName,
+    "v1.1.0-beta.1",
+  );
 });
 
 test("buildUpdateSnapshot preserves dismissal for the same release but resets for a newer one", () => {

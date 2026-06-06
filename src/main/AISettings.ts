@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { LEGACY_BLUEBERRY_WELCOME_URL, BROWSO_WELCOME_URL } from "./WelcomePage";
 import type { AgentModeId } from "./AgentModes";
+import { normalizeHomepage } from "./navigationPolicy.ts";
 
 export type LLMProvider = "ollama" | "openai" | "anthropic";
 export type SearchEngine = "google" | "duckduckgo" | "bing";
@@ -72,8 +73,10 @@ export class AISettingsStore {
           this.settings.ollamaBaseUrl ??
           DEFAULT_OLLAMA_BASE_URL,
       ),
-      homepage:
-        input.homepage?.trim() || this.settings.homepage || DEFAULT_HOMEPAGE,
+      homepage: normalizeHomepage(
+        input.homepage,
+        normalizeHomepage(this.settings.homepage, DEFAULT_HOMEPAGE),
+      ),
       searchEngine:
         input.searchEngine ??
         this.settings.searchEngine ??
@@ -113,7 +116,10 @@ export class AISettingsStore {
         this.parseProvider(parsed.provider) ?? fallback.provider;
       const parsedSearchEngine =
         this.parseSearchEngine(parsed.searchEngine) ?? fallback.searchEngine;
-      const parsedHomepage = parsed.homepage?.trim() || fallback.homepage;
+      const parsedHomepage = normalizeHomepage(
+        parsed.homepage,
+        fallback.homepage,
+      );
       const parsedModel = parsed.model?.trim() || "";
       const shouldMigrateLegacyDefaults =
         parsedHomepage === LEGACY_GOOGLE_HOMEPAGE &&
@@ -176,7 +182,10 @@ export class AISettingsStore {
       ollamaBaseUrl: this.normalizeOllamaBaseUrl(
         process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL,
       ),
-      homepage: process.env.BROWSER_HOMEPAGE?.trim() || DEFAULT_HOMEPAGE,
+      homepage: normalizeHomepage(
+        process.env.BROWSER_HOMEPAGE,
+        DEFAULT_HOMEPAGE,
+      ),
       searchEngine:
         this.parseSearchEngine(process.env.BROWSER_SEARCH_ENGINE) ??
         DEFAULT_SEARCH_ENGINE,

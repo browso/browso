@@ -18,6 +18,18 @@ test("safety policy requires handoff for consequential actions", () => {
     assessAutomationGoal("Log in and submit my application").outcome,
     "confirm",
   );
+  assert.equal(
+    assessAutomationGoal("Find and buy this product").outcome,
+    "confirm",
+  );
+  assert.equal(
+    assessAutomationGoal("Compare these flights and book one").outcome,
+    "confirm",
+  );
+  assert.equal(
+    assessAutomationGoal("Read this form and submit it").outcome,
+    "confirm",
+  );
 });
 
 test("safety policy blocks abusive automation", () => {

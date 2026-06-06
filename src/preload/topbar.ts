@@ -1,6 +1,16 @@
-import { contextBridge } from "electron";
-import { electronAPI as browsoAPI } from "@electron-toolkit/preload";
-import { subscribeToIpcChannel } from "./ipcSubscription";
+import { contextBridge, ipcRenderer } from "electron";
+
+const browsoAPI = { ipcRenderer };
+
+function subscribeToIpcChannel<T>(
+  channel: string,
+  callback: (payload: T) => void,
+): () => void {
+  const listener = (_event: Electron.IpcRendererEvent, payload: T) =>
+    callback(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 
 // TopBar specific APIs
 const topBarAPI = {
@@ -38,31 +48,39 @@ const topBarAPI = {
   getUpdateState: () => browsoAPI.ipcRenderer.invoke("update-state-get"),
   onAppSettingsUpdated: (callback: (settings: unknown) => void) => {
     return subscribeToIpcChannel(
-      browsoAPI.ipcRenderer,
       "app-settings-updated",
       callback,
     );
   },
   onUpdateStateChanged: (callback: (state: unknown) => void) => {
     return subscribeToIpcChannel(
-      browsoAPI.ipcRenderer,
       "update-state-changed",
       callback,
     );
   },
 };
 
-// Expose the BROWSO desktop bridge to the renderer.
+const darkModeAPI = {
+  setDarkMode: (isDarkMode: boolean) =>
+    browsoAPI.ipcRenderer.send("dark-mode-changed", isDarkMode),
+  onDarkModeChanged: (callback: (isDarkMode: boolean) => void) =>
+    subscribeToIpcChannel(
+      "dark-mode-updated",
+      callback,
+    ),
+};
+
+// Expose only the narrow top bar bridge to the renderer.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld("browso", browsoAPI);
     contextBridge.exposeInMainWorld("topBarAPI", topBarAPI);
+    contextBridge.exposeInMainWorld("darkModeAPI", darkModeAPI);
   } catch (error) {
     console.error(error);
   }
 } else {
   // @ts-ignore (define in dts)
-  window.browso = browsoAPI;
-  // @ts-ignore (define in dts)
   window.topBarAPI = topBarAPI;
+  // @ts-ignore (define in dts)
+  window.darkModeAPI = darkModeAPI;
 }

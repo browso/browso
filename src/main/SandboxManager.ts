@@ -82,7 +82,7 @@ function emit(type, payload) {
 function ensureScoped(name) {
   const fileName = basename(name);
   if (!scopedFiles.includes(fileName)) {
-    throw new Error(\`File \${fileName} is outside the current sandbox scope.\`);
+    throw new Error(\`File \${fileName} is outside the current runner scope.\`);
   }
   return fileName;
 }
@@ -96,13 +96,13 @@ export async function useMcp(name, input = {}) {
     name,
     input,
     status: "unavailable",
-    message: "No MCP bridge is configured inside the local sandbox yet."
+    message: "No MCP bridge is configured inside the local runner yet."
   });
   return {
     ok: false,
     name,
     input,
-    message: "No MCP bridge is configured inside the local sandbox yet."
+    message: "No MCP bridge is configured inside the local runner yet."
   };
 }
 
@@ -153,6 +153,7 @@ export class SandboxManager {
 
   createFile(input: SandboxFileInput): SandboxState {
     const file = this.createFileRecord(input.name, input.content ?? "");
+    this.assertUniqueFileName(file.name);
     this.state.files.unshift(file);
     this.state.activeFileId = file.id;
     if (!this.state.entryFileId) {
@@ -172,7 +173,9 @@ export class SandboxManager {
     }
 
     if (patch.name !== undefined) {
-      file.name = this.sanitizeFileName(patch.name);
+      const nextName = this.sanitizeFileName(patch.name);
+      this.assertUniqueFileName(nextName, file.id);
+      file.name = nextName;
     }
     if (patch.content !== undefined) {
       file.content = patch.content;
@@ -309,7 +312,7 @@ export class SandboxManager {
       status: "running",
       startedAt: Date.now(),
       finishedAt: null,
-      lines: [this.makeLine("system", "Preparing isolated workspace...")],
+      lines: [this.makeLine("system", "Preparing local runner workspace...")],
       notifications: [],
     };
   }
@@ -336,6 +339,16 @@ export class SandboxManager {
 
   private getFirstScopedFileId(): string | null {
     return this.state.files.find((file) => file.isScoped)?.id ?? null;
+  }
+
+  private assertUniqueFileName(name: string, exceptId?: string): void {
+    if (
+      this.state.files.some(
+        (file) => file.id !== exceptId && file.name === name,
+      )
+    ) {
+      throw new Error(`A local runner file named ${name} already exists.`);
+    }
   }
 
   private async materializeWorkspace(
@@ -385,7 +398,7 @@ export class SandboxManager {
     const child = spawn(process.execPath, [join(workspaceDir, entryFileName)], {
       cwd: workspaceDir,
       env: {
-        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
         BROWSO_SCOPED_FILES: JSON.stringify(
           scopedFiles.map((file) => file.name),
         ),
@@ -528,7 +541,7 @@ export class SandboxManager {
     if (error instanceof Error) {
       return error.message;
     }
-    return "Unknown sandbox error";
+    return "Unknown local runner error";
   }
 
   private emitState(): void {

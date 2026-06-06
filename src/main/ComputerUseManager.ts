@@ -106,8 +106,8 @@ Rules:
 - Verify that the page changed in the expected direction after navigation or major actions.
 - If the user gave a target site, bias toward that site instead of general search.
 - Use run_script only when it is meaningfully better than click/type.
-- Browso also has a local sandbox for code, file, spreadsheet, and data tasks.
-- Available sandbox tools are: notifyUser, currentPage, listScopedFiles, readScopedFile, writeScopedFile, useMcp.
+- Browso also has a local runner for code, file, spreadsheet, and data tasks.
+- Available local runner tools are: notifyUser, currentPage, listScopedFiles, readScopedFile, writeScopedFile, useMcp.
 - If the user request is mainly code/file/data work, make that explicit in the summary and keep browser steps minimal.
 - Never wrap the JSON in markdown fences.`;
 

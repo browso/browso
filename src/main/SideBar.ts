@@ -36,7 +36,7 @@ export class SideBar {
         preload: join(__dirname, "../preload/sidebar.js"),
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: false, // Kept disabled for runtime compatibility with current preload setup
+        sandbox: true,
       },
     });
 

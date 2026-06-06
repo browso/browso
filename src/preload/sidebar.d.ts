@@ -1,5 +1,3 @@
-import { ElectronAPI as BrowsoAPI } from "@electron-toolkit/preload";
-
 interface ChatRequest {
   message: string;
   context: {
@@ -245,9 +243,16 @@ interface SidebarAPI {
   onSandboxState: (callback: (state: SandboxState) => void) => () => void;
 }
 
+interface DarkModeAPI {
+  setDarkMode: (isDarkMode: boolean) => void;
+  onDarkModeChanged: (callback: (isDarkMode: boolean) => void) => () => void;
+}
+
 declare global {
   interface Window {
-    browso: BrowsoAPI;
     sidebarAPI: SidebarAPI;
+    darkModeAPI: DarkModeAPI;
   }
 }
+
+export {};

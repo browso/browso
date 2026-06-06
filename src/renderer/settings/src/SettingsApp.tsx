@@ -52,7 +52,7 @@ const tabs: TabConfig[] = [
   {
     id: "workspace",
     label: "Workspace",
-    description: "Sidebar width and sandbox routing",
+    description: "Sidebar width and local runner routing",
     icon: LayoutPanelLeft,
   },
   {
@@ -725,7 +725,7 @@ export const SettingsApp: React.FC = () => {
                     Routing
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Decide whether code-heavy tasks should move into the sandbox
+                    Decide whether code-heavy tasks should move into the local runner
                     automatically.
                   </p>
 
@@ -741,7 +741,7 @@ export const SettingsApp: React.FC = () => {
                       className="mt-0.5"
                     />
                     <span>
-                      Automatically switch to sandbox for code, file, and data
+                      Automatically switch to the local runner for code, file, and data
                       tasks
                     </span>
                   </label>

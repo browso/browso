@@ -1,3 +1,5 @@
+import { isAllowedExternalUrl } from "./navigationPolicy.ts";
+
 type WindowOpenHandlerResult = { action: "deny" };
 
 type WindowOpenDetails = {
@@ -15,7 +17,9 @@ export function attachExternalWindowOpenHandler(
   openExternal: (url: string) => void | Promise<void>,
 ): void {
   webContents.setWindowOpenHandler((details) => {
-    void openExternal(details.url);
+    if (isAllowedExternalUrl(details.url)) {
+      void openExternal(details.url);
+    }
     return { action: "deny" };
   });
 }

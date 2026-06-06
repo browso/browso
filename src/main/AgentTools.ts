@@ -10,6 +10,30 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const PAYMENT_FIELD_PATTERNS = /card|cvv|cvc|expiry|security[-_]?code|cc[-_]/i;
 const CHECKOUT_BLOCKER_PATTERNS =
   /captcha|robot|verify|verification|2fa|two-factor|sign in|log in|login|password/i;
+const PRODUCT_MATCH_TERMS = [
+  "shoe",
+  "sneaker",
+  "product",
+  "item",
+  "shop",
+  "buy",
+  "size",
+];
+
+export function buildProductMatchPattern(query?: string): RegExp {
+  const terms = [...PRODUCT_MATCH_TERMS];
+  const normalizedQuery = query?.trim();
+  if (normalizedQuery) {
+    terms.push(normalizedQuery);
+  }
+
+  return new RegExp(
+    terms
+      .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|"),
+    "i",
+  );
+}
 
 export function buildShoppingTools(
   getActiveTab: () => Tab | null,
@@ -267,13 +291,14 @@ export function buildShoppingTools(
         | "continue";
       query?: string;
     }) => {
+      const productPatternSource = buildProductMatchPattern(query).source;
       const result = await activeTab().runJs(`
         (() => {
           const intent = ${JSON.stringify(intent)};
           const query = (${JSON.stringify(query ?? "")} || "").toLowerCase();
           const patterns = {
             search: /search|find/i,
-            product: /(shoe|sneaker|product|item|shop|buy|size|${(query ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})/i,
+            product: new RegExp(${JSON.stringify(productPatternSource)}, "i"),
             add_to_cart: /add to cart|add to bag|add to basket/i,
             view_cart: /view cart|cart|bag|basket/i,
             checkout: /checkout|check out|proceed to checkout|continue to checkout/i,

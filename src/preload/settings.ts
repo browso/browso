@@ -1,6 +1,16 @@
-import { contextBridge } from "electron";
-import { electronAPI as browsoAPI } from "@electron-toolkit/preload";
-import { subscribeToIpcChannel } from "./ipcSubscription";
+import { contextBridge, ipcRenderer } from "electron";
+
+const browsoAPI = { ipcRenderer };
+
+function subscribeToIpcChannel<T>(
+  channel: string,
+  callback: (payload: T) => void,
+): () => void {
+  const listener = (_event: Electron.IpcRendererEvent, payload: T) =>
+    callback(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 
 interface AppSettings {
   provider: "ollama" | "openai" | "anthropic";
@@ -53,30 +63,38 @@ const settingsAPI = {
     browsoAPI.ipcRenderer.invoke("update-open-release-page"),
   onAppSettingsUpdated: (callback: (settings: AppSettings) => void) => {
     return subscribeToIpcChannel(
-      browsoAPI.ipcRenderer,
       "app-settings-updated",
       callback,
     );
   },
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => {
     return subscribeToIpcChannel(
-      browsoAPI.ipcRenderer,
       "update-state-changed",
       callback,
     );
   },
 };
 
+const darkModeAPI = {
+  setDarkMode: (isDarkMode: boolean) =>
+    browsoAPI.ipcRenderer.send("dark-mode-changed", isDarkMode),
+  onDarkModeChanged: (callback: (isDarkMode: boolean) => void) =>
+    subscribeToIpcChannel(
+      "dark-mode-updated",
+      callback,
+    ),
+};
+
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld("browso", browsoAPI);
     contextBridge.exposeInMainWorld("settingsAPI", settingsAPI);
+    contextBridge.exposeInMainWorld("darkModeAPI", darkModeAPI);
   } catch (error) {
     console.error(error);
   }
 } else {
   // @ts-ignore
-  window.browso = browsoAPI;
-  // @ts-ignore
   window.settingsAPI = settingsAPI;
+  // @ts-ignore
+  window.darkModeAPI = darkModeAPI;
 }

@@ -1,10 +1,14 @@
 import { app, dialog, shell } from "electron";
 import { logger } from "./Logger";
 import type { Window } from "./Window";
-import { buildUpdateSnapshot, type ReleaseMetadata } from "./updateState";
+import {
+  buildUpdateSnapshot,
+  selectLatestRelease,
+  type ReleaseMetadata,
+} from "./updateState";
 
 const GITHUB_REMOTE_URL = "https://github.com/Xaroq/browso.git";
-const RELEASES_URL = "https://github.com/Xaroq/browso/releases/tag/latest";
+const RELEASES_URL = "https://github.com/Xaroq/browso/releases/latest";
 
 export interface UpdateState {
   checking: boolean;
@@ -77,7 +81,7 @@ export class UpdateManager {
     this.setState({ checking: true, error: null });
 
     try {
-      const response = await fetch(this.getLatestReleaseApiUrl(), {
+      const response = await fetch(this.getReleasesApiUrl(), {
         headers: {
           Accept: "application/vnd.github+json",
           "User-Agent": `browso/${this.state.currentVersion}`,
@@ -104,21 +108,45 @@ export class UpdateManager {
         throw new Error(`GitHub update check failed with ${response.status}`);
       }
 
-      const release = (await response.json()) as {
+      const releases = (await response.json()) as Array<{
+        draft?: boolean;
         html_url?: string;
         name?: string;
         published_at?: string;
+        prerelease?: boolean;
         tag_name?: string;
-      };
+      }>;
+      const includePrereleases = this.state.currentVersion.includes("-");
+      const release = selectLatestRelease(
+        releases.map((candidate) => ({
+          draft: candidate.draft,
+          htmlUrl: candidate.html_url,
+          name: candidate.name,
+          prerelease: candidate.prerelease,
+          publishedAt: candidate.published_at,
+          tagName: candidate.tag_name,
+        })),
+        includePrereleases,
+      );
+
+      if (!release) {
+        this.setState({
+          checking: false,
+          hasUpdate: false,
+          dismissed: false,
+          latestVersion: null,
+          releaseUrl: RELEASES_URL,
+          releaseName: null,
+          publishedAt: null,
+          checkedAt: Date.now(),
+          error: "No compatible GitHub release found yet.",
+        });
+        return this.getState();
+      }
 
       const snapshot = buildUpdateSnapshot(
         this.state,
-        {
-          htmlUrl: release.html_url,
-          name: release.name,
-          publishedAt: release.published_at,
-          tagName: release.tag_name,
-        } satisfies ReleaseMetadata,
+        release satisfies ReleaseMetadata,
         RELEASES_URL,
         Date.now(),
       );
@@ -197,9 +225,9 @@ export class UpdateManager {
     }
   }
 
-  private getLatestReleaseApiUrl(): string {
+  private getReleasesApiUrl(): string {
     const repoPath = this.extractRepoPath(GITHUB_REMOTE_URL);
-    return `https://api.github.com/repos/${repoPath}/releases/latest`;
+    return `https://api.github.com/repos/${repoPath}/releases?per_page=20`;
   }
 
   private extractRepoPath(remoteUrl: string): string {

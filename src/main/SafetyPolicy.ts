@@ -25,7 +25,8 @@ const BLOCKED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 
 const CONFIRM_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   {
-    pattern: /\b(submit|send)\b.{0,30}\b(form|email|message|application)\b/i,
+    pattern:
+      /\bsubmit\b|\bsend\b.{0,30}\b(form|email|message|application)\b/i,
     reason: "Submitting information requires user confirmation.",
   },
   {
@@ -41,7 +42,8 @@ const CONFIRM_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
     reason: "Destructive actions require user confirmation.",
   },
   {
-    pattern: /\b(download|book|reserve|apply for)\b/i,
+    pattern:
+      /\bdownload\s+(?!(?:checksums?|options?|instructions?|information)\b)|\b(book|reserve|apply for)\b/i,
     reason: "This external side effect requires user confirmation.",
   },
 ];
@@ -56,14 +58,14 @@ export function assessAutomationGoal(goal: string): SafetyDecision {
     }
   }
 
-  if (READ_ONLY_REQUEST_PATTERN.test(goal)) {
-    return { outcome: "allow", reason: null };
-  }
-
   for (const rule of CONFIRM_PATTERNS) {
     if (rule.pattern.test(goal)) {
       return { outcome: "confirm", reason: rule.reason };
     }
+  }
+
+  if (READ_ONLY_REQUEST_PATTERN.test(goal)) {
+    return { outcome: "allow", reason: null };
   }
 
   return { outcome: "allow", reason: null };

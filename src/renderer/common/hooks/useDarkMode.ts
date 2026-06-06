@@ -23,29 +23,12 @@ export const useDarkMode = () => {
     localStorage.setItem("darkMode", JSON.stringify(isDarkMode));
 
     // Broadcast dark mode change to main process
-    if (window.browso) {
-      window.browso.ipcRenderer.send("dark-mode-changed", isDarkMode);
-    }
+    window.darkModeAPI.setDarkMode(isDarkMode);
   }, [isDarkMode]);
 
   // Listen for dark mode changes from other windows
   useEffect(() => {
-    const handleDarkModeUpdate = (_event: any, newDarkMode: boolean) => {
-      setIsDarkMode(newDarkMode);
-    };
-
-    if (window.browso) {
-      window.browso.ipcRenderer.on("dark-mode-updated", handleDarkModeUpdate);
-    }
-
-    return () => {
-      if (window.browso) {
-        window.browso.ipcRenderer.removeListener(
-          "dark-mode-updated",
-          handleDarkModeUpdate,
-        );
-      }
-    };
+    return window.darkModeAPI.onDarkModeChanged(setIsDarkMode);
   }, []);
 
   const toggleDarkMode = () => {

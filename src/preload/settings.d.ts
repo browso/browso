@@ -1,5 +1,3 @@
-import { ElectronAPI as BrowsoAPI } from "@electron-toolkit/preload";
-
 interface AppSettings {
   provider: "ollama" | "openai" | "anthropic";
   model: string;
@@ -62,9 +60,16 @@ interface SettingsAPI {
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void;
 }
 
+interface DarkModeAPI {
+  setDarkMode: (isDarkMode: boolean) => void;
+  onDarkModeChanged: (callback: (isDarkMode: boolean) => void) => () => void;
+}
+
 declare global {
   interface Window {
-    browso: BrowsoAPI;
     settingsAPI: SettingsAPI;
+    darkModeAPI: DarkModeAPI;
   }
 }
+
+export {};

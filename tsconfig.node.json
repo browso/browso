@@ -2,6 +2,7 @@
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": ["browso.vite.config.*", "src/main/**/*", "src/preload/**/*"],
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "composite": true,
     "types": ["electron-vite/node"],
     "ignoreDeprecations": "5.0"

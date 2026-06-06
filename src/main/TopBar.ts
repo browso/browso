@@ -19,7 +19,7 @@ export class TopBar {
         preload: join(__dirname, "../preload/topbar.js"),
         nodeIntegration: false,
         contextIsolation: true,
-        sandbox: false, // Kept disabled for runtime compatibility with current preload setup
+        sandbox: true,
       },
     });
 
