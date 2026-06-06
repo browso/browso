@@ -2,7 +2,7 @@
 
 ## Workflow
 
-The macOS pipeline is defined in:
+The desktop release pipeline is defined in:
 
 ```text
 .github/workflows/ci-release.yml
@@ -35,18 +35,20 @@ npm run typecheck
 npm run test:smoke
 ```
 
-## 3. macOS Release Builds
+## 3. Release Builds
 
 The release matrix starts only after testing succeeds.
 
-| Package       | GitHub runner    | Target CPU |
-| ------------- | ---------------- | ---------- |
-| Apple Silicon | `macos-15`       | `arm64`    |
-| Intel         | `macos-15-intel` | `x64`      |
+| Package       | GitHub runner    | Target CPU | Format     |
+| ------------- | ---------------- | ---------- | ---------- |
+| Apple Silicon | `macos-15`       | `arm64`    | DMG        |
+| Intel Mac     | `macos-15-intel` | `x64`      | DMG        |
+| Windows       | `windows-latest` | `x64`      | NSIS setup |
+| Linux         | `ubuntu-latest`  | `x64`      | AppImage   |
 
-Each runner performs a native dependency installation, application build,
-Developer ID signing, Apple notarization, stapling, and DMG packaging. The
-workflow then mounts the DMG and verifies:
+Each runner performs a native dependency installation, application build, and
+platform packaging. The macOS runners additionally perform Developer ID
+signing, Apple notarization, stapling, and DMG verification:
 
 ```bash
 codesign --verify --deep --strict
@@ -62,11 +64,13 @@ The resulting workflow artifacts are:
 ```text
 Browso-macOS-Apple-Silicon.dmg
 Browso-macOS-Intel.dmg
+Browso-Windows-x64-Setup.exe
+Browso-Linux-x86_64.AppImage
 ```
 
 ## 4. Rolling Latest Release
 
-The publish job downloads both architecture artifacts, creates
+The publish job downloads all platform artifacts, creates
 `SHA256SUMS.txt`, removes the previous `latest` release and tag, and creates a
 new release targeting the successful commit.
 
@@ -76,8 +80,8 @@ Release URL:
 https://github.com/Xaroq/browso/releases/tag/latest
 ```
 
-The asset names remain fixed. A successful release replaces the previous two
-DMGs instead of accumulating versioned assets.
+The asset names remain fixed. A successful release replaces the previous
+platform packages instead of accumulating versioned assets.
 
 ## Triggers
 
@@ -127,6 +131,18 @@ Intel DMG:
 npm run build:mac:x64
 ```
 
+Windows installer:
+
+```bash
+npm run build:win
+```
+
+Linux packages:
+
+```bash
+npm run build:linux
+```
+
 ## Signing And Notarization
 
 Production packages use hardened runtime, a Developer ID Application
@@ -161,11 +177,12 @@ Gatekeeper verification.
 ## Failure Behavior
 
 - A bootstrap failure prevents all later jobs.
-- A test failure prevents both macOS builds.
+- A test failure prevents all release builds.
+- A packaging failure does not cancel the other matrix builds.
 - Missing or invalid Apple credentials prevent packaging.
 - Signature, notarization, stapling, or Gatekeeper failures prevent upload.
-- Failure of either architecture prevents publication.
-- The previous `latest` release is deleted only after both DMGs have been
+- Failure of any platform prevents publication.
+- The previous `latest` release is deleted only after all packages have been
   downloaded and verified by the publish job.
 
 This preserves the previous downloadable release when build or test work fails.

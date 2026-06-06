@@ -61,7 +61,7 @@ jobs:
       - name: Run automated tests
         run: npm run test:smoke
 
-  package_macos:
+  package:
     name: 3. Release Build - ${{ matrix.label }}
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: testing
@@ -69,16 +69,37 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         include:
           - label: Apple Silicon
             runner: macos-15
+            platform: mac
             arch: arm64
-            asset: Naviq-macOS-Apple-Silicon.dmg
+            artifact: macos-arm64
+            asset: Browso-macOS-Apple-Silicon.dmg
+            pattern: "*.dmg"
           - label: Intel
             runner: macos-15-intel
+            platform: mac
             arch: x64
-            asset: Naviq-macOS-Intel.dmg
+            artifact: macos-x64
+            asset: Browso-macOS-Intel.dmg
+            pattern: "*.dmg"
+          - label: Windows x64
+            runner: windows-latest
+            platform: win
+            arch: x64
+            artifact: windows-x64
+            asset: Browso-Windows-x64-Setup.exe
+            pattern: "*.exe"
+          - label: Linux x64
+            runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            artifact: linux-x64
+            asset: Browso-Linux-x86_64.AppImage
+            pattern: "*.AppImage"
 
     steps:
       - name: Check out repository
@@ -94,6 +115,7 @@ jobs:
         run: npm ci
 
       - name: Configure Apple signing and notarization
+        if: matrix.platform == 'mac'
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -135,24 +157,46 @@ jobs:
         run: npm run build
 
       - name: Sign, notarize, and package macOS DMG
+        if: matrix.platform == 'mac'
         run: >
           npx electron-builder
           --mac dmg
           --${{ matrix.arch }}
+          -c browso-builder.yml
           --config.forceCodeSigning=true
           --config.directories.output=release/${{ matrix.arch }}
 
+      - name: Package Windows installer
+        if: matrix.platform == 'win'
+        run: >
+          npx electron-builder
+          --win nsis
+          --${{ matrix.arch }}
+          -c browso-builder.yml
+          --config.directories.output=release/${{ matrix.arch }}
+
+      - name: Package Linux AppImage
+        if: matrix.platform == 'linux'
+        run: >
+          npx electron-builder
+          --linux AppImage
+          --${{ matrix.arch }}
+          -c browso-builder.yml
+          --config.directories.output=release/${{ matrix.arch }}
+
       - name: Prepare release asset
+        shell: bash
         run: |
           mkdir -p release-assets
-          dmg_path="$(find "release/${{ matrix.arch }}" -type f -name '*.dmg' -print -quit)"
-          if [ -z "$dmg_path" ]; then
-            echo "No DMG was produced."
+          package_path="$(find "release/${{ matrix.arch }}" -type f -name '${{ matrix.pattern }}' -print -quit)"
+          if [ -z "$package_path" ]; then
+            echo "No ${{ matrix.pattern }} package was produced."
             exit 1
           fi
-          cp "$dmg_path" "release-assets/${{ matrix.asset }}"
+          cp "$package_path" "release-assets/${{ matrix.asset }}"
 
       - name: Verify Gatekeeper acceptance
+        if: matrix.platform == 'mac'
         run: >
           bash scripts/verify-macos-release.sh
           "release-assets/${{ matrix.asset }}"
@@ -161,7 +205,7 @@ jobs:
       - name: Upload packaged application
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.arch }}
+          name: package-${{ matrix.artifact }}
           path: release-assets/${{ matrix.asset }}
           if-no-files-found: error
           retention-days: 7
@@ -169,7 +213,7 @@ jobs:
   publish_latest:
     name: 4. Publish Latest Release
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: package_macos
+    needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -181,18 +225,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download macOS packages
+      - name: Download packages
         uses: actions/download-artifact@v4
         with:
-          pattern: macos-*
+          pattern: package-*
           path: release-assets
           merge-multiple: true
 
       - name: Verify release assets
         run: |
-          test -f release-assets/Naviq-macOS-Apple-Silicon.dmg
-          test -f release-assets/Naviq-macOS-Intel.dmg
-          shasum -a 256 release-assets/*.dmg | tee release-assets/SHA256SUMS.txt
+          test -f release-assets/Browso-macOS-Apple-Silicon.dmg
+          test -f release-assets/Browso-macOS-Intel.dmg
+          test -f release-assets/Browso-Windows-x64-Setup.exe
+          test -f release-assets/Browso-Linux-x86_64.AppImage
+          sha256sum release-assets/* | tee release-assets/SHA256SUMS.txt
 
       - name: Read application version
         run: echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
@@ -200,15 +246,17 @@ jobs:
       - name: Write release notes
         run: |
           cat > release-notes.md <<EOF
-          Rolling Naviq ${APP_VERSION} macOS build from commit \`${GITHUB_SHA}\`.
+          Rolling Browso ${APP_VERSION} desktop builds from commit \`${GITHUB_SHA}\`.
 
           ## Downloads
 
-          - **Apple Silicon:** \`Naviq-macOS-Apple-Silicon.dmg\`
-          - **Intel:** \`Naviq-macOS-Intel.dmg\`
+          - **macOS Apple Silicon:** \`Browso-macOS-Apple-Silicon.dmg\`
+          - **macOS Intel:** \`Browso-macOS-Intel.dmg\`
+          - **Windows x64:** \`Browso-Windows-x64-Setup.exe\`
+          - **Linux x64:** \`Browso-Linux-x86_64.AppImage\`
           - **Checksums:** \`SHA256SUMS.txt\`
 
-          Both builds are signed with an Apple Developer ID certificate,
+          The macOS builds are signed with an Apple Developer ID certificate,
           notarized by Apple, stapled, and verified with Gatekeeper before
           publication.
           EOF
@@ -220,10 +268,12 @@ jobs:
           gh release delete latest --cleanup-tag --yes || true
           git push origin :refs/tags/latest || true
           gh release create latest \
-            release-assets/Naviq-macOS-Apple-Silicon.dmg \
-            release-assets/Naviq-macOS-Intel.dmg \
+            release-assets/Browso-macOS-Apple-Silicon.dmg \
+            release-assets/Browso-macOS-Intel.dmg \
+            release-assets/Browso-Windows-x64-Setup.exe \
+            release-assets/Browso-Linux-x86_64.AppImage \
             release-assets/SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
-            --title "Naviq ${APP_VERSION} Latest" \
+            --title "Browso ${APP_VERSION} Latest" \
             --notes-file release-notes.md \
             --latest

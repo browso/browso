@@ -10,21 +10,6 @@ The project is designed as a layered browser-agent platform. Research,
 shopping, scraping, developer assistance, and defensive security analysis are
 modes over the same browser, reasoning, tool, memory, and safety layers.
 
-## Download
-
-The rolling [latest release](https://github.com/browso/browso/releases/tag/latest)
-contains two macOS builds:
-
-| Platform                   | Download                        |
-| -------------------------- | ------------------------------- |
-| Apple Silicon, M1 or newer | `Browso-macOS-Apple-Silicon.dmg` |
-| Intel Mac                  | `Browso-macOS-Intel.dmg`         |
-
-The release also includes `SHA256SUMS.txt`.
-
-The release pipeline publishes macOS builds only after Developer ID signing,
-Apple notarization, ticket stapling, and Gatekeeper verification succeed.
-
 ## What Browso Does
 
 ### AI Browser Copilot
