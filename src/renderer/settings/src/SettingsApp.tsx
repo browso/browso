@@ -12,7 +12,6 @@ import {
   Moon,
   Search,
   Sun,
-  X,
 } from "lucide-react";
 
 type AppSettings = Awaited<
@@ -32,7 +31,6 @@ type SettingsTab = "general" | "ai" | "workspace" | "memory";
 type TabConfig = {
   id: SettingsTab;
   label: string;
-  description: string;
   icon: React.ComponentType<{ className?: string }>;
 };
 
@@ -40,25 +38,21 @@ const tabs: TabConfig[] = [
   {
     id: "general",
     label: "General",
-    description: "Theme, homepage, and search defaults",
     icon: Globe,
   },
   {
     id: "ai",
     label: "AI",
-    description: "Provider, model, and local Ollama setup",
     icon: Bot,
   },
   {
     id: "workspace",
     label: "Workspace",
-    description: "Sidebar width and local runner routing",
     icon: LayoutPanelLeft,
   },
   {
     id: "memory",
     label: "Memory",
-    description: "Remembered preferences and instructions",
     icon: MemoryStick,
   },
 ];
@@ -164,33 +158,16 @@ export const SettingsApp: React.FC = () => {
     );
   }
 
-  const activeTabConfig = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
-  const ActiveTabIcon = activeTabConfig.icon;
   const updateCheckedLabel = updateState?.checkedAt
     ? new Date(updateState.checkedAt).toLocaleString()
     : "Not checked yet";
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      <header className="app-region-drag flex items-center justify-between border-b border-border/70 px-6 py-5">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-            Browso
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-foreground">
-            Settings
-          </h1>
-        </div>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => void window.settingsAPI.closeBrowserSettings()}
-          title="Close settings"
-          className="app-region-no-drag"
-        >
-          <X className="size-4" />
-        </Button>
-      </header>
+      <header
+        aria-hidden="true"
+        className="app-region-drag h-10 shrink-0 border-b border-border/70"
+      />
 
       <div className="app-region-no-drag flex min-h-0 flex-1 flex-col gap-5 p-5 lg:flex-row">
         <aside className="w-full shrink-0 lg:w-[320px]">
@@ -200,7 +177,7 @@ export const SettingsApp: React.FC = () => {
                 Preferences
               </p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Organize Browso by area instead of one long page.
+                Organize preferences by area instead of one long page.
               </p>
             </div>
             <nav className="space-y-1">
@@ -230,18 +207,8 @@ export const SettingsApp: React.FC = () => {
                     >
                       <Icon className="size-4" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium">{tab.label}</div>
-                      <div
-                        className={cn(
-                          "mt-0.5 text-xs leading-5",
-                          isActive
-                            ? "text-muted-foreground"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {tab.description}
-                      </div>
+                    <div className="min-w-0 flex-1 text-sm font-medium">
+                      {tab.label}
                     </div>
                     <ChevronRight
                       className={cn(
@@ -260,22 +227,6 @@ export const SettingsApp: React.FC = () => {
 
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-5xl space-y-4">
-            <section className="rounded-[24px] border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="flex size-12 items-center justify-center rounded-2xl bg-secondary/80">
-                  <ActiveTabIcon className="size-5 text-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">
-                    {activeTabConfig.label}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {activeTabConfig.description}
-                  </p>
-                </div>
-              </div>
-            </section>
-
             {activeTab === "general" && (
               <>
                 <section className={cardClassName}>
@@ -454,7 +405,8 @@ export const SettingsApp: React.FC = () => {
                         Startup
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Choose where a new tab starts when Browso opens a page.
+                        Choose where a new tab starts when the browser opens a
+                        page.
                       </p>
                     </div>
                   </div>
@@ -563,7 +515,7 @@ export const SettingsApp: React.FC = () => {
                         Local server
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Point Browso at your Ollama instance.
+                        Connect the browser to your Ollama instance.
                       </p>
 
                       <div className="mt-4">
@@ -725,8 +677,8 @@ export const SettingsApp: React.FC = () => {
                     Routing
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Decide whether code-heavy tasks should move into the local runner
-                    automatically.
+                    Decide whether code-heavy tasks should move into the local
+                    runner automatically.
                   </p>
 
                   <label className="mt-4 flex items-start gap-3 rounded-[22px] border border-border bg-background/70 p-4 text-sm text-foreground">
@@ -741,8 +693,8 @@ export const SettingsApp: React.FC = () => {
                       className="mt-0.5"
                     />
                     <span>
-                      Automatically switch to the local runner for code, file, and data
-                      tasks
+                      Automatically switch to the local runner for code, file,
+                      and data tasks
                     </span>
                   </label>
                 </section>
@@ -761,8 +713,8 @@ export const SettingsApp: React.FC = () => {
                         Memory
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Browso stores distilled preferences and instructions
-                        here, not full chat logs.
+                        Distilled preferences and instructions are stored here,
+                        not full chat logs.
                       </p>
                     </div>
                   </div>

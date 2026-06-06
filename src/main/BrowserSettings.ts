@@ -22,7 +22,7 @@ export class BrowserSettings {
       minHeight: 620,
       show: false,
       autoHideMenuBar: true,
-      title: "Browso Settings",
+      title: "",
       parent: this.parentWindow,
       backgroundColor: "#0b1020",
       titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
