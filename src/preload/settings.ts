@@ -54,6 +54,25 @@ interface UpdateState {
   error: string | null;
 }
 
+interface ProfileContextState {
+  activeProfileId: string;
+  activeContextId: string;
+  profiles: Array<{
+    id: string;
+    name: string;
+    createdAt: number;
+    updatedAt: number;
+  }>;
+  contexts: Array<{
+    id: string;
+    profileId: string;
+    name: string;
+    description: string;
+    createdAt: number;
+    updatedAt: number;
+  }>;
+}
+
 const settingsAPI = {
   getAppSettings: () => browsoAPI.ipcRenderer.invoke("app-settings-get"),
   updateAppSettings: (settings: Partial<AppSettings>) =>
@@ -75,6 +94,28 @@ const settingsAPI = {
     browsoAPI.ipcRenderer.invoke("settings-clear-chat-history"),
   clearSiteData: () => browsoAPI.ipcRenderer.invoke("settings-clear-site-data"),
   clearCache: () => browsoAPI.ipcRenderer.invoke("settings-clear-cache"),
+  getProfilesAndContexts: () =>
+    browsoAPI.ipcRenderer.invoke("profiles-contexts-get"),
+  createProfile: (name: string) =>
+    browsoAPI.ipcRenderer.invoke("profile-create", { name }),
+  renameProfile: (id: string, name: string) =>
+    browsoAPI.ipcRenderer.invoke("profile-rename", { id, name }),
+  deleteProfile: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("profile-delete", id),
+  switchProfile: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("profile-switch", id),
+  createContext: (profileId: string, name: string, description?: string) =>
+    browsoAPI.ipcRenderer.invoke("context-create", {
+      profileId,
+      name,
+      description,
+    }),
+  updateContext: (id: string, input: { name?: string; description?: string }) =>
+    browsoAPI.ipcRenderer.invoke("context-update", { id, ...input }),
+  deleteContext: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("context-delete", id),
+  switchContext: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("context-switch", id),
   getUpdateState: () => browsoAPI.ipcRenderer.invoke("update-state-get"),
   checkForUpdates: () => browsoAPI.ipcRenderer.invoke("update-check"),
   downloadUpdate: () => browsoAPI.ipcRenderer.invoke("update-download"),
@@ -88,6 +129,9 @@ const settingsAPI = {
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => {
     return subscribeToIpcChannel("update-state-changed", callback);
   },
+  onProfilesAndContextsUpdated: (
+    callback: (state: ProfileContextState) => void,
+  ) => subscribeToIpcChannel("profiles-contexts-updated", callback),
 };
 
 const darkModeAPI = {

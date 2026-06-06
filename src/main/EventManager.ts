@@ -8,6 +8,10 @@ import { ipcSchemas, parseIpcInput } from "./ipcSchemas";
 import { BrowserContextService } from "./BrowserContextService";
 import { KnowledgeStore } from "./KnowledgeStore";
 import { AgentModeRegistry } from "./AgentModes";
+import {
+  ProfileContextStore,
+  type ProfileContextState,
+} from "./ProfileContextStore";
 
 const SENSITIVE_CHANNELS = new Set([
   "sidebar-chat-message",
@@ -81,6 +85,15 @@ export class EventManager {
     "knowledge-search",
     "knowledge-delete",
     "knowledge-clear",
+    "profiles-contexts-get",
+    "profile-create",
+    "profile-rename",
+    "profile-delete",
+    "profile-switch",
+    "context-create",
+    "context-update",
+    "context-delete",
+    "context-switch",
   ] as const;
   private readonly getMainWindow: () => Window | null;
   private settingsStore: AISettingsStore;
@@ -88,6 +101,7 @@ export class EventManager {
   private updateManager: UpdateManager;
   private browserContext: BrowserContextService;
   private knowledgeStore: KnowledgeStore;
+  private profileContextStore: ProfileContextStore;
   private removeUpdateListener: (() => void) | null = null;
 
   constructor(getMainWindow: () => Window | null) {
@@ -97,6 +111,7 @@ export class EventManager {
     this.updateManager = UpdateManager.getInstance();
     this.browserContext = new BrowserContextService(this.getMainWindow);
     this.knowledgeStore = KnowledgeStore.getInstance();
+    this.profileContextStore = ProfileContextStore.getInstance();
     this.removeRegisteredHandlers();
     this.setupEventHandlers();
     this.removeUpdateListener = this.updateManager.onStateChange(() =>
@@ -144,6 +159,9 @@ export class EventManager {
     // Memory events
     this.handleMemoryEvents();
 
+    // Profiles and contexts
+    this.handleProfileContextEvents();
+
     // Data management events
     this.handleDataManagementEvents();
 
@@ -173,6 +191,146 @@ export class EventManager {
       logger.info("Memory cleared");
       return this.memoryStore.clear();
     });
+  }
+
+  private handleProfileContextEvents(): void {
+    ipcMain.handle("profiles-contexts-get", () => {
+      this.logChannel("profiles-contexts-get");
+      return this.profileContextStore.getState();
+    });
+
+    ipcMain.handle("profile-create", (_, input) => {
+      const payload = parseIpcInput(
+        ipcSchemas.profileCreate,
+        input,
+        "profile-create",
+      );
+      return this.applyProfileContextChange(() =>
+        this.profileContextStore.createProfile(payload.name),
+      );
+    });
+
+    ipcMain.handle("profile-rename", (_, input) => {
+      const payload = parseIpcInput(
+        ipcSchemas.profileRename,
+        input,
+        "profile-rename",
+      );
+      return this.applyProfileContextChange(
+        () => this.profileContextStore.renameProfile(payload.id, payload.name),
+        false,
+      );
+    });
+
+    ipcMain.handle("profile-delete", (_, id) => {
+      const profileId = parseIpcInput(
+        ipcSchemas.profileContextId,
+        id,
+        "profile-delete",
+      );
+      const before = this.profileContextStore.getState();
+      const deletedContextIds = before.contexts
+        .filter((context) => context.profileId === profileId)
+        .map((context) => context.id);
+      const state = this.applyProfileContextChange(() =>
+        this.profileContextStore.deleteProfile(profileId),
+      );
+      deletedContextIds.forEach((contextId) =>
+        this.deleteContextData(contextId),
+      );
+      return state;
+    });
+
+    ipcMain.handle("profile-switch", (_, id) => {
+      const profileId = parseIpcInput(
+        ipcSchemas.profileContextId,
+        id,
+        "profile-switch",
+      );
+      return this.applyProfileContextChange(() =>
+        this.profileContextStore.switchProfile(profileId),
+      );
+    });
+
+    ipcMain.handle("context-create", (_, input) => {
+      const payload = parseIpcInput(
+        ipcSchemas.contextCreate,
+        input,
+        "context-create",
+      );
+      return this.applyProfileContextChange(() =>
+        this.profileContextStore.createContext(
+          payload.profileId,
+          payload.name,
+          payload.description,
+        ),
+      );
+    });
+
+    ipcMain.handle("context-update", (_, input) => {
+      const payload = parseIpcInput(
+        ipcSchemas.contextUpdate,
+        input,
+        "context-update",
+      );
+      return this.applyProfileContextChange(
+        () => this.profileContextStore.updateContext(payload.id, payload),
+        false,
+      );
+    });
+
+    ipcMain.handle("context-delete", (_, id) => {
+      const contextId = parseIpcInput(
+        ipcSchemas.profileContextId,
+        id,
+        "context-delete",
+      );
+      const state = this.applyProfileContextChange(() =>
+        this.profileContextStore.deleteContext(contextId),
+      );
+      this.deleteContextData(contextId);
+      return state;
+    });
+
+    ipcMain.handle("context-switch", (_, id) => {
+      const contextId = parseIpcInput(
+        ipcSchemas.profileContextId,
+        id,
+        "context-switch",
+      );
+      return this.applyProfileContextChange(() =>
+        this.profileContextStore.switchContext(contextId),
+      );
+    });
+  }
+
+  private applyProfileContextChange(
+    change: () => ProfileContextState,
+    maySwitchContext = true,
+  ): ProfileContextState {
+    const mainWindow = this.requireMainWindow();
+    if (maySwitchContext && mainWindow.sidebar.client.isBusy()) {
+      throw new Error(
+        "Wait for the active AI request to finish before switching context.",
+      );
+    }
+    const previousContextId = this.profileContextStore.getActiveContextId();
+    const state = change();
+    if (state.activeContextId !== previousContextId) {
+      mainWindow.sidebar.client.switchContext(state.activeContextId);
+    }
+    mainWindow.sidebar.view.webContents.send(
+      "profiles-contexts-updated",
+      state,
+    );
+    mainWindow.browserSettings.send("profiles-contexts-updated", state);
+    return state;
+  }
+
+  private deleteContextData(contextId: string): void {
+    this.memoryStore.deleteContext(contextId);
+    this.knowledgeStore.deleteContext(contextId);
+    this.requireMainWindow().sidebar.client.deleteContext(contextId);
   }
 
   private handleDataManagementEvents(): void {

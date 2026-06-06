@@ -114,6 +114,39 @@ for (const width of [-1, 0, 319, 320.5, 721, 1000, "400", null]) {
   });
 }
 
+for (const name of ["Work", "Personal", "A".repeat(80)]) {
+  test(`profile schema accepts ${name.length}-character name`, () => {
+    assert.equal(ipcSchemas.profileCreate.parse({ name }).name, name);
+  });
+}
+
+for (const name of ["", " ", "A".repeat(81), null, 42]) {
+  test(`profile schema rejects name ${JSON.stringify(name)}`, () => {
+    assert.throws(() => ipcSchemas.profileCreate.parse({ name }));
+  });
+}
+
+test("context schema accepts a bounded description", () => {
+  const parsed = ipcSchemas.contextCreate.parse({
+    profileId: "profile-work",
+    name: "Research",
+    description: "Competitive research for the current project.",
+  });
+  assert.equal(parsed.name, "Research");
+});
+
+for (const description of ["A".repeat(501), null, 42]) {
+  test(`context schema rejects description ${JSON.stringify(description)}`, () => {
+    assert.throws(() =>
+      ipcSchemas.contextCreate.parse({
+        profileId: "profile-work",
+        name: "Research",
+        description,
+      }),
+    );
+  });
+}
+
 for (const provider of ["ollama", "openai", "anthropic"] as const) {
   test(`settings schema accepts provider ${provider}`, () => {
     assert.equal(

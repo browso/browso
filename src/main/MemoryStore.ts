@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
+import { ProfileContextStore } from "./ProfileContextStore";
 
 export interface MemoryEntry {
   id: string;
@@ -10,14 +11,21 @@ export interface MemoryEntry {
   updatedAt: number;
 }
 
+interface MemoryFile {
+  version: 2;
+  contexts: Record<string, MemoryEntry[]>;
+}
+
 export class MemoryStore {
   private static instance: MemoryStore | null = null;
   private readonly filePath: string;
-  private memories: MemoryEntry[];
+  private readonly profileContextStore: ProfileContextStore;
+  private contexts: Record<string, MemoryEntry[]>;
 
   private constructor() {
     this.filePath = join(app.getPath("userData"), "memory-store.json");
-    this.memories = this.load();
+    this.profileContextStore = ProfileContextStore.getInstance();
+    this.contexts = this.load();
   }
 
   static getInstance(): MemoryStore {
@@ -28,7 +36,9 @@ export class MemoryStore {
   }
 
   getMemories(): MemoryEntry[] {
-    return [...this.memories].sort((a, b) => b.updatedAt - a.updatedAt);
+    return [...this.getActiveMemories()].sort(
+      (a, b) => b.updatedAt - a.updatedAt,
+    );
   }
 
   upsertMemory(
@@ -37,7 +47,8 @@ export class MemoryStore {
   ): MemoryEntry {
     const normalized = this.normalizeContent(content);
     const now = Date.now();
-    const existing = this.memories.find(
+    const memories = this.getActiveMemories();
+    const existing = memories.find(
       (entry) => this.normalizeContent(entry.content) === normalized,
     );
 
@@ -56,40 +67,63 @@ export class MemoryStore {
       updatedAt: now,
     };
 
-    this.memories = [memory, ...this.memories].slice(0, 100);
+    this.contexts[this.getActiveContextId()] = [memory, ...memories].slice(
+      0,
+      100,
+    );
     this.persist();
     return { ...memory };
   }
 
   deleteMemory(id: string): MemoryEntry[] {
-    this.memories = this.memories.filter((entry) => entry.id !== id);
+    const contextId = this.getActiveContextId();
+    this.contexts[contextId] = this.getActiveMemories().filter(
+      (entry) => entry.id !== id,
+    );
     this.persist();
     return this.getMemories();
   }
 
   clear(): MemoryEntry[] {
-    this.memories = [];
+    this.contexts[this.getActiveContextId()] = [];
     this.persist();
     return [];
   }
 
-  private load(): MemoryEntry[] {
+  deleteContext(contextId: string): void {
+    delete this.contexts[contextId];
+    this.persist();
+  }
+
+  private load(): Record<string, MemoryEntry[]> {
     try {
       const raw = readFileSync(this.filePath, "utf8");
-      const parsed = JSON.parse(raw) as MemoryEntry[];
-      return Array.isArray(parsed) ? parsed : [];
+      const parsed = JSON.parse(raw) as MemoryFile | MemoryEntry[];
+      if (Array.isArray(parsed)) {
+        return { [this.getActiveContextId()]: parsed };
+      }
+      return parsed.version === 2 &&
+        parsed.contexts &&
+        typeof parsed.contexts === "object"
+        ? parsed.contexts
+        : {};
     } catch {
-      return [];
+      return {};
     }
   }
 
   private persist(): void {
+    const data: MemoryFile = { version: 2, contexts: this.contexts };
     mkdirSync(dirname(this.filePath), { recursive: true });
-    writeFileSync(
-      this.filePath,
-      JSON.stringify(this.memories, null, 2),
-      "utf8",
-    );
+    writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf8");
+  }
+
+  private getActiveContextId(): string {
+    return this.profileContextStore.getActiveContextId();
+  }
+
+  private getActiveMemories(): MemoryEntry[] {
+    return this.contexts[this.getActiveContextId()] ?? [];
   }
 
   private normalizeContent(value: string): string {

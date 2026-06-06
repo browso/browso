@@ -59,6 +59,29 @@ interface KnowledgePage {
   updatedAt: number;
 }
 
+interface BrowserProfile {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface BrowserContext {
+  id: string;
+  profileId: string;
+  name: string;
+  description: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface ProfileContextState {
+  activeProfileId: string;
+  activeContextId: string;
+  profiles: BrowserProfile[];
+  contexts: BrowserContext[];
+}
+
 interface SettingsAPI {
   getAppSettings: () => Promise<AppSettings>;
   updateAppSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>;
@@ -78,6 +101,22 @@ interface SettingsAPI {
   clearChatHistory: () => Promise<{ cleared: boolean }>;
   clearSiteData: () => Promise<{ cleared: boolean }>;
   clearCache: () => Promise<{ cleared: boolean }>;
+  getProfilesAndContexts: () => Promise<ProfileContextState>;
+  createProfile: (name: string) => Promise<ProfileContextState>;
+  renameProfile: (id: string, name: string) => Promise<ProfileContextState>;
+  deleteProfile: (id: string) => Promise<ProfileContextState>;
+  switchProfile: (id: string) => Promise<ProfileContextState>;
+  createContext: (
+    profileId: string,
+    name: string,
+    description?: string,
+  ) => Promise<ProfileContextState>;
+  updateContext: (
+    id: string,
+    input: { name?: string; description?: string },
+  ) => Promise<ProfileContextState>;
+  deleteContext: (id: string) => Promise<ProfileContextState>;
+  switchContext: (id: string) => Promise<ProfileContextState>;
   getUpdateState: () => Promise<UpdateState>;
   checkForUpdates: () => Promise<UpdateState>;
   downloadUpdate: () => Promise<UpdateState>;
@@ -88,6 +127,9 @@ interface SettingsAPI {
     callback: (settings: AppSettings) => void,
   ) => () => void;
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void;
+  onProfilesAndContextsUpdated: (
+    callback: (state: ProfileContextState) => void,
+  ) => () => void;
 }
 
 interface DarkModeAPI {

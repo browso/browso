@@ -17,10 +17,36 @@ const navigationTargetSchema = z
   .trim()
   .min(1)
   .refine(isAllowedNavigationTarget, "Unsupported navigation URL");
+const profileContextIdSchema = z.string().trim().min(1).max(256);
+const profileContextNameSchema = z.string().trim().min(1).max(80);
 
 export const ipcSchemas = {
   optionalNavigationTarget: navigationTargetSchema.optional(),
   tabId: z.string().trim().min(1),
+  profileContextId: profileContextIdSchema,
+  profileCreate: z.object({
+    name: profileContextNameSchema,
+  }),
+  profileRename: z.object({
+    id: profileContextIdSchema,
+    name: profileContextNameSchema,
+  }),
+  contextCreate: z.object({
+    profileId: profileContextIdSchema,
+    name: profileContextNameSchema,
+    description: z.string().trim().max(500).optional(),
+  }),
+  contextUpdate: z
+    .object({
+      id: profileContextIdSchema,
+      name: profileContextNameSchema.optional(),
+      description: z.string().trim().max(500).optional(),
+    })
+    .refine(
+      (value) =>
+        typeof value.name === "string" || typeof value.description === "string",
+      "Context update must not be empty",
+    ),
   navigation: z.object({
     tabId: z.string().trim().min(1),
     url: navigationTargetSchema,

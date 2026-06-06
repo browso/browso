@@ -17,6 +17,9 @@ type AgentMode = Awaited<
   ReturnType<typeof window.sidebarAPI.listAgentModes>
 >[number];
 type AISettings = Awaited<ReturnType<typeof window.sidebarAPI.getAISettings>>;
+type ProfileContextState = Awaited<
+  ReturnType<typeof window.sidebarAPI.getProfilesAndContexts>
+>;
 
 const COMMAND_SUGGESTIONS = [
   {
@@ -105,6 +108,8 @@ export const Chat: React.FC = () => {
     useState<ComputerUseState | null>(null);
   const [agentModes, setAgentModes] = useState<AgentMode[]>([]);
   const [settings, setSettings] = useState<AISettings | null>(null);
+  const [profileContextState, setProfileContextState] =
+    useState<ProfileContextState | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const dragState = useRef<{
     startMouseX: number;
@@ -143,6 +148,12 @@ export const Chat: React.FC = () => {
         }
       },
     );
+    const removeProfileContextListener =
+      window.sidebarAPI.onProfilesAndContextsUpdated((state) => {
+        setProfileContextState(state);
+        setIsSending(false);
+        setStreamingThought("");
+      });
 
     const load = async (): Promise<void> => {
       const [
@@ -152,6 +163,7 @@ export const Chat: React.FC = () => {
         computerUseState,
         availableModes,
         aiSettings,
+        profilesAndContexts,
       ] = await Promise.all([
         window.sidebarAPI.getMessages(),
         window.sidebarAPI.getActiveTabInfo(),
@@ -159,6 +171,7 @@ export const Chat: React.FC = () => {
         window.sidebarAPI.getComputerUseState(),
         window.sidebarAPI.listAgentModes(),
         window.sidebarAPI.getAISettings(),
+        window.sidebarAPI.getProfilesAndContexts(),
       ]);
 
       setMessages(history);
@@ -168,6 +181,7 @@ export const Chat: React.FC = () => {
       setIsComputerUseRunning(Boolean(computerUseState?.isRunning));
       setAgentModes(availableModes);
       setSettings(aiSettings);
+      setProfileContextState(profilesAndContexts);
     };
 
     void load();
@@ -181,6 +195,7 @@ export const Chat: React.FC = () => {
       removeMessagesUpdatedListener();
       removeChatResponseListener();
       removeComputerUseStateListener();
+      removeProfileContextListener();
     };
   }, []);
 
@@ -302,6 +317,13 @@ export const Chat: React.FC = () => {
     setSettings(updated);
   };
 
+  const changeContext = async (contextId: string): Promise<void> => {
+    const next = await window.sidebarAPI.switchContext(contextId);
+    setProfileContextState(next);
+    setIsSending(false);
+    setStreamingThought("");
+  };
+
   const saveCurrentPage = async (): Promise<void> => {
     setSaveStatus("Saving...");
     try {
@@ -324,7 +346,7 @@ export const Chat: React.FC = () => {
       </div>
 
       <div className="border-b border-border/80 px-4 py-3">
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <select
             value={settings?.activeAgentMode ?? "copilot"}
             onChange={(event) =>
@@ -332,7 +354,7 @@ export const Chat: React.FC = () => {
                 event.target.value as AISettings["activeAgentMode"],
               )
             }
-            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none"
+            className="min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none"
             aria-label="Agent mode"
           >
             {agentModes.map((mode) => (
@@ -341,6 +363,26 @@ export const Chat: React.FC = () => {
               </option>
             ))}
           </select>
+          <select
+            value={profileContextState?.activeContextId ?? ""}
+            onChange={(event) => void changeContext(event.target.value)}
+            disabled={isComposerLocked}
+            className="min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none"
+            aria-label="Active context"
+          >
+            {(profileContextState?.contexts ?? []).map((context) => {
+              const profile = profileContextState?.profiles.find(
+                (entry) => entry.id === context.profileId,
+              );
+              return (
+                <option key={context.id} value={context.id}>
+                  {profile?.name ?? "Profile"} / {context.name}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <div className="mt-2 flex items-center justify-end">
           <Button
             variant="outline"
             size="icon"

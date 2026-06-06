@@ -16,6 +16,7 @@ import {
   Moon,
   Search,
   Sun,
+  Users,
 } from "lucide-react";
 
 type AppSettings = Awaited<
@@ -33,7 +34,16 @@ type KnowledgePage = Awaited<
 type UpdateState = Awaited<
   ReturnType<typeof window.settingsAPI.getUpdateState>
 >;
-type SettingsTab = "general" | "ai" | "workspace" | "memory" | "data";
+type ProfileContextState = Awaited<
+  ReturnType<typeof window.settingsAPI.getProfilesAndContexts>
+>;
+type SettingsTab =
+  | "general"
+  | "profiles"
+  | "ai"
+  | "workspace"
+  | "memory"
+  | "data";
 
 type TabConfig = {
   id: SettingsTab;
@@ -46,6 +56,11 @@ const tabs: TabConfig[] = [
     id: "general",
     label: "General",
     icon: Globe,
+  },
+  {
+    id: "profiles",
+    label: "Profiles",
+    icon: Users,
   },
   {
     id: "ai",
@@ -80,6 +95,14 @@ export const SettingsApp: React.FC = () => {
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [knowledgePages, setKnowledgePages] = useState<KnowledgePage[]>([]);
+  const [profileContextState, setProfileContextState] =
+    useState<ProfileContextState | null>(null);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [newContextName, setNewContextName] = useState("");
+  const [newContextDescription, setNewContextDescription] = useState("");
+  const [profileActionStatus, setProfileActionStatus] = useState<string | null>(
+    null,
+  );
   const [dataActionStatus, setDataActionStatus] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
   const [ollamaState, setOllamaState] = useState<{
@@ -95,18 +118,33 @@ export const SettingsApp: React.FC = () => {
     const removeUpdateStateListener = window.settingsAPI.onUpdateStateChanged(
       (next) => setUpdateState(next),
     );
+    const removeProfileContextListener =
+      window.settingsAPI.onProfilesAndContextsUpdated((next) => {
+        setProfileContextState(next);
+        void Promise.all([
+          window.settingsAPI.getMemories().then(setMemories),
+          window.settingsAPI.getKnowledgePages().then(setKnowledgePages),
+        ]);
+      });
 
     const load = async (): Promise<void> => {
-      const [next, savedMemories, savedPages, nextUpdateState] =
-        await Promise.all([
-          window.settingsAPI.getAppSettings(),
-          window.settingsAPI.getMemories(),
-          window.settingsAPI.getKnowledgePages(),
-          window.settingsAPI.getUpdateState(),
-        ]);
+      const [
+        next,
+        savedMemories,
+        savedPages,
+        nextProfileContextState,
+        nextUpdateState,
+      ] = await Promise.all([
+        window.settingsAPI.getAppSettings(),
+        window.settingsAPI.getMemories(),
+        window.settingsAPI.getKnowledgePages(),
+        window.settingsAPI.getProfilesAndContexts(),
+        window.settingsAPI.getUpdateState(),
+      ]);
       setSettings(next);
       setMemories(savedMemories);
       setKnowledgePages(savedPages);
+      setProfileContextState(nextProfileContextState);
       setUpdateState(nextUpdateState);
     };
 
@@ -115,6 +153,7 @@ export const SettingsApp: React.FC = () => {
     return () => {
       removeAppSettingsListener();
       removeUpdateStateListener();
+      removeProfileContextListener();
     };
   }, []);
 
@@ -155,6 +194,36 @@ export const SettingsApp: React.FC = () => {
         error instanceof Error
           ? error.message
           : "The action could not be completed.",
+      );
+    }
+  };
+
+  const applyProfileContextState = async (
+    next: ProfileContextState,
+    successMessage: string,
+  ): Promise<void> => {
+    setProfileContextState(next);
+    const [nextMemories, nextPages] = await Promise.all([
+      window.settingsAPI.getMemories(),
+      window.settingsAPI.getKnowledgePages(),
+    ]);
+    setMemories(nextMemories);
+    setKnowledgePages(nextPages);
+    setProfileActionStatus(successMessage);
+  };
+
+  const runProfileAction = async (
+    successMessage: string,
+    action: () => Promise<ProfileContextState>,
+  ): Promise<void> => {
+    setProfileActionStatus(null);
+    try {
+      await applyProfileContextState(await action(), successMessage);
+    } catch (error) {
+      setProfileActionStatus(
+        error instanceof Error
+          ? error.message
+          : "The profile action could not be completed.",
       );
     }
   };
@@ -571,6 +640,236 @@ export const SettingsApp: React.FC = () => {
                     </select>
                   </div>
                 </section>
+              </>
+            )}
+
+            {activeTab === "profiles" && profileContextState && (
+              <>
+                <section className={cardClassName}>
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex size-10 items-center justify-center rounded-2xl bg-secondary">
+                      <Users className="size-4 text-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Browser profiles
+                      </h3>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Profiles organize separate work, personal, research, or
+                        project contexts.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                    <select
+                      value={profileContextState.activeProfileId}
+                      onChange={(event) =>
+                        void runProfileAction("Profile switched.", () =>
+                          window.settingsAPI.switchProfile(event.target.value),
+                        )
+                      }
+                      className="rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                    >
+                      {profileContextState.profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      disabled={profileContextState.profiles.length === 1}
+                      onClick={() =>
+                        void runProfileAction("Profile deleted.", () =>
+                          window.settingsAPI.deleteProfile(
+                            profileContextState.activeProfileId,
+                          ),
+                        )
+                      }
+                    >
+                      Delete Profile
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 flex gap-3">
+                    <input
+                      value={newProfileName}
+                      onChange={(event) =>
+                        setNewProfileName(event.target.value)
+                      }
+                      placeholder="New profile name"
+                      maxLength={80}
+                      className="min-w-0 flex-1 rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                    />
+                    <Button
+                      disabled={!newProfileName.trim()}
+                      onClick={() =>
+                        void runProfileAction("Profile created.", () =>
+                          window.settingsAPI
+                            .createProfile(newProfileName)
+                            .then((next) => {
+                              setNewProfileName("");
+                              return next;
+                            }),
+                        )
+                      }
+                    >
+                      Add Profile
+                    </Button>
+                  </div>
+                </section>
+
+                <section className={cardClassName}>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Contexts
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Every context has separate AI conversation, memory, and
+                      saved knowledge.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {profileContextState.contexts
+                      .filter(
+                        (context) =>
+                          context.profileId ===
+                          profileContextState.activeProfileId,
+                      )
+                      .map((context) => {
+                        const isActive =
+                          context.id === profileContextState.activeContextId;
+                        const contextCount =
+                          profileContextState.contexts.filter(
+                            (entry) => entry.profileId === context.profileId,
+                          ).length;
+
+                        return (
+                          <div
+                            key={context.id}
+                            className={cn(
+                              "flex items-start justify-between gap-3 rounded-[20px] border p-4",
+                              isActive
+                                ? "border-foreground/30 bg-secondary"
+                                : "border-border bg-background/80",
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                  {context.name}
+                                </p>
+                                {isActive && (
+                                  <span className="rounded-full bg-background px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              {context.description && (
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                  {context.description}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {!isActive && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    void runProfileAction(
+                                      "Context switched.",
+                                      () =>
+                                        window.settingsAPI.switchContext(
+                                          context.id,
+                                        ),
+                                    )
+                                  }
+                                >
+                                  Switch
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={contextCount === 1}
+                                onClick={() =>
+                                  void runProfileAction(
+                                    "Context deleted.",
+                                    () =>
+                                      window.settingsAPI.deleteContext(
+                                        context.id,
+                                      ),
+                                  )
+                                }
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </section>
+
+                <section className={cardClassName}>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    New context
+                  </h3>
+                  <div className="mt-4 grid gap-3">
+                    <input
+                      value={newContextName}
+                      onChange={(event) =>
+                        setNewContextName(event.target.value)
+                      }
+                      placeholder="Context name"
+                      maxLength={80}
+                      className="rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                    />
+                    <textarea
+                      value={newContextDescription}
+                      onChange={(event) =>
+                        setNewContextDescription(event.target.value)
+                      }
+                      placeholder="Optional purpose or instructions"
+                      maxLength={500}
+                      rows={3}
+                      className="resize-none rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                    />
+                    <Button
+                      className="justify-self-start"
+                      disabled={!newContextName.trim()}
+                      onClick={() =>
+                        void runProfileAction("Context created.", () =>
+                          window.settingsAPI
+                            .createContext(
+                              profileContextState.activeProfileId,
+                              newContextName,
+                              newContextDescription,
+                            )
+                            .then((next) => {
+                              setNewContextName("");
+                              setNewContextDescription("");
+                              return next;
+                            }),
+                        )
+                      }
+                    >
+                      Add Context
+                    </Button>
+                  </div>
+                </section>
+
+                {profileActionStatus && (
+                  <div
+                    role="status"
+                    className="rounded-[20px] border border-border bg-card/80 px-4 py-3 text-sm text-muted-foreground"
+                  >
+                    {profileActionStatus}
+                  </div>
+                )}
               </>
             )}
 

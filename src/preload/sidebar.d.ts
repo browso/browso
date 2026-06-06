@@ -109,6 +109,18 @@ interface AISettings {
   activeAgentMode: AgentModeId;
 }
 
+interface ProfileContextState {
+  activeProfileId: string;
+  activeContextId: string;
+  profiles: Array<{ id: string; name: string }>;
+  contexts: Array<{
+    id: string;
+    profileId: string;
+    name: string;
+    description: string;
+  }>;
+}
+
 type AgentModeId =
   | "copilot"
   | "research"
@@ -211,6 +223,11 @@ interface SidebarAPI {
   }>;
   getAppSettings: () => Promise<AISettings>;
   updateAppSettings: (settings: Partial<AISettings>) => Promise<AISettings>;
+  getProfilesAndContexts: () => Promise<ProfileContextState>;
+  switchContext: (id: string) => Promise<ProfileContextState>;
+  onProfilesAndContextsUpdated: (
+    callback: (state: ProfileContextState) => void,
+  ) => () => void;
   onAISettingsUpdated: (callback: (settings: AISettings) => void) => () => void;
   onOpenSettings: (callback: () => void) => () => void;
 

@@ -55,6 +55,18 @@ interface AISettings {
     | "security";
 }
 
+interface ProfileContextState {
+  activeProfileId: string;
+  activeContextId: string;
+  profiles: Array<{ id: string; name: string }>;
+  contexts: Array<{
+    id: string;
+    profileId: string;
+    name: string;
+    description: string;
+  }>;
+}
+
 // Sidebar specific APIs
 const sidebarAPI = {
   // Chat functionality
@@ -102,6 +114,13 @@ const sidebarAPI = {
   getAppSettings: () => browsoAPI.ipcRenderer.invoke("app-settings-get"),
   updateAppSettings: (settings: Partial<AISettings>) =>
     browsoAPI.ipcRenderer.invoke("app-settings-update", settings),
+  getProfilesAndContexts: () =>
+    browsoAPI.ipcRenderer.invoke("profiles-contexts-get"),
+  switchContext: (id: string) =>
+    browsoAPI.ipcRenderer.invoke("context-switch", id),
+  onProfilesAndContextsUpdated: (
+    callback: (state: ProfileContextState) => void,
+  ) => subscribeToIpcChannel("profiles-contexts-updated", callback),
   onAISettingsUpdated: (callback: (settings: AISettings) => void) => {
     return subscribeToIpcChannel("ai-settings-updated", callback);
   },

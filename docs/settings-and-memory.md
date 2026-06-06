@@ -18,6 +18,26 @@ Settings are persisted by `AISettingsStore` in `ai-settings.json`.
 
 Provider credentials are not stored in this file.
 
+## Profiles And Contexts
+
+Profiles group multiple named contexts. The application always keeps at least
+one profile and one context per profile.
+
+Each context isolates:
+
+- the live AI conversation
+- saved user memories
+- pages saved for local AI knowledge
+
+Switching context immediately swaps those three data sources. The context name,
+profile name, and optional purpose are included in the AI system prompt.
+Existing flat memory and knowledge files migrate into the default
+`Personal / General` context.
+
+Browser tabs, website cookies, cache, provider credentials, and general
+application preferences remain global. Profiles do not currently create
+separate Electron website sessions.
+
 The Data tab provides explicit local-data controls:
 
 - clear the current AI conversation
