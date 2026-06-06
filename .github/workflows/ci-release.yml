@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  RELEASE_TAG: v1.0.0-beta
+
 concurrency:
   group: naviq-ci-release-${{ github.ref }}
   cancel-in-progress: true
@@ -77,28 +80,28 @@ jobs:
             platform: mac
             arch: arm64
             artifact: macos-arm64
-            asset: Browso-macOS-Apple-Silicon.dmg
+            asset: browso-mac-apple-silicon.dmg
             pattern: "*.dmg"
           - label: Intel
             runner: macos-15-intel
             platform: mac
             arch: x64
             artifact: macos-x64
-            asset: Browso-macOS-Intel.dmg
+            asset: browso-mac-mac-intel.dmg
             pattern: "*.dmg"
           - label: Windows x64
             runner: windows-latest
             platform: win
             arch: x64
             artifact: windows-x64
-            asset: Browso-Windows-x64-Setup.exe
+            asset: browso-win-x64.exe
             pattern: "*.exe"
           - label: Linux x64
             runner: ubuntu-latest
             platform: linux
             arch: x64
             artifact: linux-x64
-            asset: Browso-Linux-x86_64.AppImage
+            asset: browso-linux-x86-64.AppImage
             pattern: "*.AppImage"
 
     steps:
@@ -203,6 +206,44 @@ jobs:
           -c browso-builder.yml
           --config.directories.output=release/${{ matrix.arch }}
 
+      - name: Test packaged macOS application
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          executable="$(find "release/${{ matrix.arch }}" -type f -path '*/Browso.app/Contents/MacOS/Browso' -print -quit)"
+          if [ -z "$executable" ]; then
+            echo "The packaged macOS executable was not found."
+            exit 1
+          fi
+          "$executable" --smoke-test
+
+      - name: Test packaged Windows application
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $process = Start-Process `
+            -FilePath "release/${{ matrix.arch }}/win-unpacked/Browso.exe" `
+            -ArgumentList "--smoke-test" `
+            -PassThru
+          if (-not $process.WaitForExit(30000)) {
+            $process.Kill()
+            throw "Packaged Windows startup smoke test timed out."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged Windows startup smoke test failed with exit code $($process.ExitCode)."
+          }
+
+      - name: Test packaged Linux application
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          executable="$(find "release/${{ matrix.arch }}" -type f -path '*/linux-unpacked/Browso' -print -quit)"
+          if [ -z "$executable" ]; then
+            echo "The packaged Linux executable was not found."
+            exit 1
+          fi
+          timeout 30s xvfb-run -a "$executable" --no-sandbox --smoke-test
+
       - name: Prepare release asset
         shell: bash
         run: |
@@ -235,8 +276,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish_latest:
-    name: 4. Publish Latest Release
+  publish_release:
+    name: 4. Publish v1.0.0-beta
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: package
     runs-on: ubuntu-latest
@@ -259,47 +300,45 @@ jobs:
 
       - name: Verify release assets
         run: |
-          test -f release-assets/Browso-macOS-Apple-Silicon.dmg
-          test -f release-assets/Browso-macOS-Intel.dmg
-          test -f release-assets/Browso-Windows-x64-Setup.exe
-          test -f release-assets/Browso-Linux-x86_64.AppImage
-          sha256sum release-assets/* | tee release-assets/SHA256SUMS.txt
-
-      - name: Read application version
-        run: echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          test -f release-assets/browso-linux-x86-64.AppImage
+          test -f release-assets/browso-mac-apple-silicon.dmg
+          test -f release-assets/browso-mac-mac-intel.dmg
+          test -f release-assets/browso-win-x64.exe
+          find release-assets -maxdepth 1 -type f ! -name 'browso-linux-x86-64.AppImage' ! -name 'browso-mac-apple-silicon.dmg' ! -name 'browso-mac-mac-intel.dmg' ! -name 'browso-win-x64.exe' -delete
+          sha256sum \
+            release-assets/browso-linux-x86-64.AppImage \
+            release-assets/browso-mac-apple-silicon.dmg \
+            release-assets/browso-mac-mac-intel.dmg \
+            release-assets/browso-win-x64.exe \
+            > release-assets/SHA256SUMS.txt
 
       - name: Write release notes
         run: |
           cat > release-notes.md <<EOF
-          Rolling Browso ${APP_VERSION} desktop builds from commit \`${GITHUB_SHA}\`.
+          Browso v1.0.0 beta.
 
           ## Downloads
 
-          - **macOS Apple Silicon:** \`Browso-macOS-Apple-Silicon.dmg\`
-          - **macOS Intel:** \`Browso-macOS-Intel.dmg\`
-          - **Windows x64:** \`Browso-Windows-x64-Setup.exe\`
-          - **Linux x64:** \`Browso-Linux-x86_64.AppImage\`
+          - \`browso-linux-x86-64.AppImage\`
+          - \`browso-mac-apple-silicon.dmg\`
+          - \`browso-mac-mac-intel.dmg\`
+          - \`browso-win-x64.exe\`
           - **Checksums:** \`SHA256SUMS.txt\`
-
-          macOS builds are signed, notarized, and Gatekeeper-verified when the
-          repository's Apple signing credentials are configured. Otherwise the
-          workflow publishes ad-hoc signed builds that users can approve with
-          Finder's Open command or in System Settings.
           EOF
 
-      - name: Replace rolling latest release
+      - name: Replace beta release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete latest --cleanup-tag --yes || true
-          git push origin :refs/tags/latest || true
-          gh release create latest \
-            release-assets/Browso-macOS-Apple-Silicon.dmg \
-            release-assets/Browso-macOS-Intel.dmg \
-            release-assets/Browso-Windows-x64-Setup.exe \
-            release-assets/Browso-Linux-x86_64.AppImage \
+          gh release delete "$RELEASE_TAG" --cleanup-tag --yes || true
+          git push origin ":refs/tags/$RELEASE_TAG" || true
+          gh release create "$RELEASE_TAG" \
+            release-assets/browso-linux-x86-64.AppImage \
+            release-assets/browso-mac-apple-silicon.dmg \
+            release-assets/browso-mac-mac-intel.dmg \
+            release-assets/browso-win-x64.exe \
             release-assets/SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
-            --title "Browso ${APP_VERSION} Latest" \
+            --title "$RELEASE_TAG" \
             --notes-file release-notes.md \
-            --latest
+            --prerelease

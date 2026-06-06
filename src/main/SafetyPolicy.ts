@@ -46,11 +46,18 @@ const CONFIRM_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
   },
 ];
 
+const READ_ONLY_REQUEST_PATTERN =
+  /^\s*(summari[sz]e|explain|review|inspect|read|list|analy[sz]e|describe|compare|find)\b/i;
+
 export function assessAutomationGoal(goal: string): SafetyDecision {
   for (const rule of BLOCKED_PATTERNS) {
     if (rule.pattern.test(goal)) {
       return { outcome: "block", reason: rule.reason };
     }
+  }
+
+  if (READ_ONLY_REQUEST_PATTERN.test(goal)) {
+    return { outcome: "allow", reason: null };
   }
 
   for (const rule of CONFIRM_PATTERNS) {

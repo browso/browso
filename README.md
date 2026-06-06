@@ -1,7 +1,7 @@
 # Browso
 
 [![Build, Test, Release](https://github.com/browso/browso/actions/workflows/ci-release.yml/badge.svg)](https://github.com/browso/actions/workflows/ci-release.yml)
-[![Latest Release](https://img.shields.io/github/v/release/browso/browso?display_name=release&label=latest)](https://github.com/browso/releases/tag/latest)
+[![Beta Release](https://img.shields.io/badge/release-v1.0.0--beta-blue)](https://github.com/browso/browso/releases/tag/v1.0.0-beta)
 
 Browso is a desktop AI browser that combines a page-aware copilot, constrained
 browser automation, multi-tab research, and local knowledge in one application.
@@ -142,7 +142,7 @@ four ordered jobs:
 1. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
 2. **Testing** runs TypeScript checks and the automated test suite.
 3. **Release Build** packages native DMGs on Apple Silicon and Intel runners.
-4. **Publish Latest Release** replaces the rolling `latest` GitHub release.
+4. **Publish Release** replaces the `v1.0.0-beta` prerelease.
 
 Pull requests run build and tests only. Pushes to `main`, plus manual workflow
 runs from `main`, package and publish both macOS architectures.

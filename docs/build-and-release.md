@@ -59,29 +59,37 @@ xcrun stapler validate
 The package is uploaded only if all three checks pass. Native runners are used
 instead of cross-compiling.
 
+Before upload, every runner launches the packaged application with its
+`--smoke-test` acceptance mode. That mode loads the production sidebar HTML,
+uses the real textarea and send button to submit `/help`, crosses the preload
+and IPC boundary, and verifies that both the user question and assistant
+response render. A missing renderer asset, broken preload, failed IPC handler,
+or startup crash therefore prevents publication.
+
 The resulting workflow artifacts are:
 
 ```text
-Browso-macOS-Apple-Silicon.dmg
-Browso-macOS-Intel.dmg
-Browso-Windows-x64-Setup.exe
-Browso-Linux-x86_64.AppImage
+browso-linux-x86-64.AppImage
+browso-mac-apple-silicon.dmg
+browso-mac-mac-intel.dmg
+browso-win-x64.exe
+SHA256SUMS.txt
 ```
 
-## 4. Rolling Latest Release
+## 4. Beta Release
 
 The publish job downloads all platform artifacts, creates
-`SHA256SUMS.txt`, removes the previous `latest` release and tag, and creates a
-new release targeting the successful commit.
+`SHA256SUMS.txt`, removes the previous `v1.0.0-beta` release and tag, and
+creates a prerelease targeting the successful commit.
 
 Release URL:
 
 ```text
-https://github.com/Xaroq/browso/releases/tag/latest
+https://github.com/browso/browso/releases/tag/v1.0.0-beta
 ```
 
-The asset names remain fixed. A successful release replaces the previous
-platform packages instead of accumulating versioned assets.
+The release title and tag are `v1.0.0-beta`. It contains only the four platform
+packages and `SHA256SUMS.txt`, plus GitHub's automatic source code archives.
 
 ## Triggers
 
@@ -181,13 +189,18 @@ must still approve the app through Finder or macOS Privacy & Security.
 
 - A bootstrap failure prevents all later jobs.
 - A test failure prevents all release builds.
+- The automated suite contains at least 1,000 behavioral cases covering chat
+  input, navigation, safety decisions, knowledge retrieval, update behavior,
+  and browser contracts.
 - A packaging failure does not cancel the other matrix builds.
+- A packaged application that cannot launch and complete the first-run chat
+  acceptance flow is not uploaded.
 - Missing Apple credentials produce ad-hoc signed macOS packages without
   cancelling the other matrix builds.
 - Invalid configured Apple credentials can still fail the affected macOS build.
 - Signature, notarization, stapling, or Gatekeeper failures prevent upload.
 - Failure of any platform prevents publication.
-- The previous `latest` release is deleted only after all packages have been
+- The previous `v1.0.0-beta` release is deleted only after all packages have been
   downloaded and verified by the publish job.
 
 This preserves the previous downloadable release when build or test work fails.

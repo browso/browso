@@ -1,7 +1,7 @@
 {
   "name": "browso",
   "productName": "Browso",
-  "version": "1.0.0",
+  "version": "1.0.0-beta",
   "description": "A layered AI browser copilot, autonomous web agent, and local knowledge browser.",
   "main": "./out/main/index.js",
   "author": "Xaroq",

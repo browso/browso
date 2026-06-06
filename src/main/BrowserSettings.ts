@@ -44,7 +44,7 @@ export class BrowserSettings {
       void settingsWindow.loadURL(settingsUrl.toString());
     } else {
       void settingsWindow.loadFile(
-        join(__dirname, "../renderer/settings.html"),
+        join(__dirname, "../renderer/settings/index.html"),
       );
     }
 

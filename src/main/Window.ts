@@ -16,12 +16,12 @@ export class Window {
   private _sideBar: SideBar;
   private _browserSettings: BrowserSettings;
 
-  constructor() {
+  constructor(options: { show?: boolean } = {}) {
     // Create the browser window.
     this._baseWindow = new BaseWindow({
       width: 1000,
       height: 800,
-      show: true,
+      show: options.show ?? true,
       autoHideMenuBar: false,
       titleBarStyle: "hidden",
       ...(process.platform !== "darwin" ? { titleBarOverlay: true } : {}),

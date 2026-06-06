@@ -113,6 +113,12 @@ export class LLMClient {
     try {
       const localCommand = this.parseLocalCommand(request.message);
       if (localCommand) {
+        this.messages.push({
+          role: "user",
+          content: request.message,
+        });
+        this.compactMessages();
+        this.sendMessagesToRenderer();
         await this.handleLocalCommand(localCommand, request);
         return;
       }

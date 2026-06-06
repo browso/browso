@@ -35,6 +35,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  executableName: Browso
   icon: resources/icon.png
   target:
     - AppImage

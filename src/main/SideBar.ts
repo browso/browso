@@ -50,7 +50,7 @@ export class SideBar {
       webContentsView.webContents.loadURL(sidebarUrl.toString());
     } else {
       webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/sidebar.html"),
+        join(__dirname, "../renderer/sidebar/index.html"),
       );
     }
 

@@ -471,6 +471,7 @@ export const Chat: React.FC = () => {
       <div className="border-t border-border/80 px-4 py-4">
         <div className="rounded-[28px] border border-border bg-card p-3 shadow-sm">
           <textarea
+            aria-label="Ask Browso"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -533,6 +534,7 @@ export const Chat: React.FC = () => {
               <Plus className="size-4" />
             </Button>
             <Button
+              aria-label="Send question"
               size="icon"
               onClick={() => void sendMessage(draft)}
               disabled={!draft.trim() || isComposerLocked}

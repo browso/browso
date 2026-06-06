@@ -26,14 +26,11 @@ export class TopBar {
     // Load the TopBar React app
     if (is.dev && process.env["BROWSO_RENDERER_URL"]) {
       // In development, load through Vite dev server
-      const topbarUrl = new URL(
-        "/topbar/",
-        process.env["BROWSO_RENDERER_URL"],
-      );
+      const topbarUrl = new URL("/topbar/", process.env["BROWSO_RENDERER_URL"]);
       webContentsView.webContents.loadURL(topbarUrl.toString());
     } else {
       webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/topbar.html"),
+        join(__dirname, "../renderer/topbar/index.html"),
       );
     }
 
