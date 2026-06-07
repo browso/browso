@@ -24,6 +24,9 @@ type ProfileContextState = Awaited<
   ReturnType<typeof window.sidebarAPI.getProfilesAndContexts>
 >;
 
+const RESPONSE_REVEAL_INTERVAL_MS = 42;
+const RESPONSE_REVEAL_CHARS = 2;
+
 const COMMAND_SUGGESTIONS = [
   {
     command: "/help",
@@ -103,6 +106,10 @@ export const Chat: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [isComputerUseRunning, setIsComputerUseRunning] = useState(false);
   const [streamingThought, setStreamingThought] = useState("");
+  const [presentedResponse, setPresentedResponse] = useState<{
+    messageId: string;
+    content: string;
+  } | null>(null);
   const [computerUseState, setComputerUseState] =
     useState<ComputerUseState | null>(null);
   const [profileContextState, setProfileContextState] =
@@ -116,6 +123,61 @@ export const Chat: React.FC = () => {
   } | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const responseQueueRef = useRef("");
+  const responseCompleteRef = useRef(false);
+  const responseReceivedChunksRef = useRef(false);
+  const responseTimerRef = useRef<number | null>(null);
+
+  const stopResponsePresentation = (): void => {
+    if (responseTimerRef.current !== null) {
+      window.clearTimeout(responseTimerRef.current);
+      responseTimerRef.current = null;
+    }
+    responseQueueRef.current = "";
+    responseCompleteRef.current = false;
+    responseReceivedChunksRef.current = false;
+  };
+
+  const scheduleResponsePresentation = (): void => {
+    if (responseTimerRef.current !== null) {
+      return;
+    }
+
+    const revealNext = (): void => {
+      const nextText = responseQueueRef.current.slice(0, RESPONSE_REVEAL_CHARS);
+      responseQueueRef.current = responseQueueRef.current.slice(
+        nextText.length,
+      );
+
+      if (nextText) {
+        setPresentedResponse((previous) =>
+          previous
+            ? { ...previous, content: previous.content + nextText }
+            : previous,
+        );
+      }
+
+      if (responseQueueRef.current) {
+        const punctuationPause = /[.!?]\s?$/.test(nextText) ? 130 : 0;
+        responseTimerRef.current = window.setTimeout(
+          revealNext,
+          RESPONSE_REVEAL_INTERVAL_MS + punctuationPause,
+        );
+        return;
+      }
+
+      responseTimerRef.current = null;
+      if (responseCompleteRef.current) {
+        responseCompleteRef.current = false;
+        setIsSending(false);
+      }
+    };
+
+    responseTimerRef.current = window.setTimeout(
+      revealNext,
+      RESPONSE_REVEAL_INTERVAL_MS,
+    );
+  };
 
   useEffect(() => {
     const removeMessagesUpdatedListener = window.sidebarAPI.onMessagesUpdated(
@@ -131,14 +193,34 @@ export const Chat: React.FC = () => {
     );
     const removeChatResponseListener = window.sidebarAPI.onChatResponse(
       (data) => {
-        if (!data.isComplete) {
+        if (data.messageId === "agent-thinking") {
           setStreamingThought((previous) => previous + data.content);
           return;
         }
 
-        setStreamingThought("");
-        if (data.isComplete) {
+        setPresentedResponse((previous) => {
+          if (previous?.messageId === data.messageId) {
+            return previous;
+          }
+          return { messageId: data.messageId, content: "" };
+        });
+
+        if (!data.isComplete) {
+          responseReceivedChunksRef.current = true;
+          responseQueueRef.current += data.content;
+          scheduleResponsePresentation();
+          return;
+        }
+
+        if (!responseReceivedChunksRef.current) {
+          responseQueueRef.current += data.content;
+        }
+        responseCompleteRef.current = true;
+        if (!responseQueueRef.current) {
           setIsSending(false);
+          responseCompleteRef.current = false;
+        } else {
+          scheduleResponsePresentation();
         }
       },
     );
@@ -190,6 +272,7 @@ export const Chat: React.FC = () => {
 
     return () => {
       window.clearInterval(interval);
+      stopResponsePresentation();
       removeMessagesUpdatedListener();
       removeAIDraftListener();
       removeChatResponseListener();
@@ -204,7 +287,7 @@ export const Chat: React.FC = () => {
       return;
     }
     container.scrollTop = container.scrollHeight;
-  }, [messages]);
+  }, [messages, presentedResponse?.content]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent): void => {
@@ -296,6 +379,9 @@ export const Chat: React.FC = () => {
 
     setDraft("");
     setIsSending(true);
+    stopResponsePresentation();
+    setStreamingThought("");
+    setPresentedResponse(null);
 
     try {
       await window.sidebarAPI.sendChatMessage({
@@ -402,7 +488,13 @@ export const Chat: React.FC = () => {
         {messages.length > 0 ? (
           <div className="space-y-3">
             {messages.map((message, index) => {
-              const text = extractMessageText(message);
+              const isLastMessage = index === messages.length - 1;
+              const text =
+                presentedResponse &&
+                isLastMessage &&
+                message.role === "assistant"
+                  ? presentedResponse.content
+                  : extractMessageText(message);
               const isUser = message.role === "user";
 
               return (
