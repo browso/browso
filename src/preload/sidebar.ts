@@ -46,19 +46,17 @@ interface AISettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode:
-    | "copilot"
-    | "research"
-    | "shopping"
-    | "scraper"
-    | "developer"
-    | "security";
 }
 
 interface ProfileContextState {
   activeProfileId: string;
   activeContextId: string;
-  profiles: Array<{ id: string; name: string }>;
+  profiles: Array<{
+    id: string;
+    name: string;
+    icon: "person" | "briefcase" | "graduation" | "globe";
+    color: "blue" | "purple" | "green" | "orange" | "red" | "gray";
+  }>;
   contexts: Array<{
     id: string;
     profileId: string;
@@ -84,6 +82,8 @@ const sidebarAPI = {
   onMessagesUpdated: (callback: (messages: unknown[]) => void) => {
     return subscribeToIpcChannel("chat-messages-updated", callback);
   },
+  onAIDraftRequested: (callback: (message: string) => void) =>
+    subscribeToIpcChannel("ai-draft-requested", callback),
 
   // Page content access
   getPageContent: () => browsoAPI.ipcRenderer.invoke("get-page-content"),
@@ -93,7 +93,6 @@ const sidebarAPI = {
     browsoAPI.ipcRenderer.invoke("browser-context-current"),
   getOpenTabContexts: () =>
     browsoAPI.ipcRenderer.invoke("browser-context-tabs"),
-  listAgentModes: () => browsoAPI.ipcRenderer.invoke("agent-modes-list"),
   listKnowledge: () => browsoAPI.ipcRenderer.invoke("knowledge-list"),
   saveCurrentPage: (note?: string) =>
     browsoAPI.ipcRenderer.invoke("knowledge-save-current", { note }),
@@ -116,8 +115,8 @@ const sidebarAPI = {
     browsoAPI.ipcRenderer.invoke("app-settings-update", settings),
   getProfilesAndContexts: () =>
     browsoAPI.ipcRenderer.invoke("profiles-contexts-get"),
-  switchContext: (id: string) =>
-    browsoAPI.ipcRenderer.invoke("context-switch", id),
+  openSettings: () =>
+    browsoAPI.ipcRenderer.invoke("open-browser-settings", "profiles"),
   onProfilesAndContextsUpdated: (
     callback: (state: ProfileContextState) => void,
   ) => subscribeToIpcChannel("profiles-contexts-updated", callback),

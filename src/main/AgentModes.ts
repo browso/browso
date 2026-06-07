@@ -83,6 +83,49 @@ const MODES: Record<AgentModeId, AgentMode> = {
   },
 };
 
+const MODE_INTENT_PATTERNS: Array<{
+  id: Exclude<AgentModeId, "copilot">;
+  pattern: RegExp;
+}> = [
+  {
+    id: "security",
+    pattern:
+      /\b(phishing|scam|malware|suspicious|security|privacy risk|certificate|credential theft|is (?:this|the) (?:site|page|link) safe)\b/i,
+  },
+  {
+    id: "shopping",
+    pattern:
+      /\b(buy|purchase|order|shopping|shop for|add to cart|checkout|prices?|deals?|discount|products?|sellers?|return polic(?:y|ies)|shipping)\b/i,
+  },
+  {
+    id: "scraper",
+    pattern:
+      /\b(scrape|extract|export|dataset|structured data|json|csv|table|all (?:items|rows|records|links|products)|collect (?:the )?(?:fields|records|entries))\b/i,
+  },
+  {
+    id: "developer",
+    pattern:
+      /\b(api|sdk|code|coding|programming|developer|documentation|technical docs?|implementation|typescript|javascript|python|rust|java|sql|framework|library|debug)\b/i,
+  },
+  {
+    id: "research",
+    pattern:
+      /\b(research|compare|investigate|sources?|citations?|evidence|synthesize|across (?:tabs|pages|sites)|literature|pros and cons|alternatives)\b/i,
+  },
+];
+
+export function routeAgentMode(message: string): AgentModeId {
+  const normalized = message.trim();
+  if (!normalized) {
+    return "copilot";
+  }
+
+  return (
+    MODE_INTENT_PATTERNS.find(({ pattern }) => pattern.test(normalized))?.id ??
+    "copilot"
+  );
+}
+
 export class AgentModeRegistry {
   static list(): AgentMode[] {
     return Object.values(MODES).map((mode) => ({

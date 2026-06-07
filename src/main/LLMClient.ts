@@ -19,7 +19,11 @@ import { extractComparisonRequest } from "./comparisonRequest";
 import type { Tab } from "./Tab";
 import { BrowserContextService } from "./BrowserContextService";
 import { KnowledgeStore } from "./KnowledgeStore";
-import { AgentModeRegistry, type AgentModeId } from "./AgentModes";
+import {
+  AgentModeRegistry,
+  routeAgentMode,
+  type AgentMode,
+} from "./AgentModes";
 import { assessAutomationGoal } from "./SafetyPolicy";
 import { ProfileContextStore } from "./ProfileContextStore";
 
@@ -53,7 +57,6 @@ type ParsedLocalCommand =
   | { type: "help" }
   | { type: "remember"; content: string }
   | { type: "save"; note: string }
-  | { type: "mode"; mode: AgentModeId | null }
   | { type: "notes" };
 
 const MAX_CONTEXT_LENGTH = 4000;
@@ -286,18 +289,6 @@ export class LLMClient {
       return { type: "notes" };
     }
 
-    if (trimmed === "/mode") {
-      return { type: "mode", mode: null };
-    }
-
-    if (trimmed.startsWith("/mode ")) {
-      const value = trimmed.slice(6).trim();
-      return {
-        type: "mode",
-        mode: AgentModeRegistry.isModeId(value) ? value : null,
-      };
-    }
-
     if (trimmed.startsWith("@")) {
       const content = trimmed.slice(1).trim();
       if (!content) {
@@ -327,9 +318,6 @@ export class LLMClient {
         "",
         "/notes",
         "List recently saved pages.",
-        "",
-        "/mode [copilot|research|shopping|scraper|developer|security]",
-        "Show or change the active agent mode.",
       ].join("\n");
       this.appendAssistantMessage(response);
       this.sendStreamChunk(request.messageId, {
@@ -399,38 +387,6 @@ export class LLMClient {
         isComplete: true,
       });
       return;
-    }
-
-    if (command.type === "mode") {
-      const currentMode = this.settingsStore.getSettings().activeAgentMode;
-      if (!command.mode) {
-        const response = [
-          `Current mode: ${AgentModeRegistry.get(currentMode).label}`,
-          "Available modes:",
-          ...AgentModeRegistry.list().map(
-            (mode) => `- ${mode.id}: ${mode.description}`,
-          ),
-          "",
-          "Change mode with /mode research, for example.",
-        ].join("\n");
-        this.appendAssistantMessage(response);
-        this.sendStreamChunk(request.messageId, {
-          content: response,
-          isComplete: true,
-        });
-        return;
-      }
-
-      const updated = this.settingsStore.updateSettings({
-        activeAgentMode: command.mode,
-      });
-      const mode = AgentModeRegistry.get(updated.activeAgentMode);
-      const response = `Agent mode changed to ${mode.label}: ${mode.description}`;
-      this.appendAssistantMessage(response);
-      this.sendStreamChunk(request.messageId, {
-        content: response,
-        isComplete: true,
-      });
     }
   }
 
@@ -874,9 +830,7 @@ export class LLMClient {
     request: ChatRequest,
   ): Promise<CoreMessage[]> {
     const currentPage = await this.browserContext.getActivePageContext(12_000);
-    const mode = AgentModeRegistry.get(
-      this.settingsStore.getSettings().activeAgentMode,
-    );
+    const mode = AgentModeRegistry.get(routeAgentMode(request.message));
     const shouldIncludeTabs =
       mode.id === "research" ||
       /\b(all|open|these)\s+tabs?\b|\bcompare\s+tabs?\b/i.test(request.message);
@@ -888,7 +842,12 @@ export class LLMClient {
     // Build system message
     const systemMessage: CoreMessage = {
       role: "system",
-      content: this.buildSystemPrompt(currentPage, tabContexts, knowledge),
+      content: this.buildSystemPrompt(
+        currentPage,
+        tabContexts,
+        knowledge,
+        mode,
+      ),
     };
 
     // Include all messages in history (system + conversation)
@@ -903,16 +862,14 @@ export class LLMClient {
       ReturnType<BrowserContextService["getOpenTabContexts"]>
     >,
     knowledge: ReturnType<KnowledgeStore["search"]>,
+    mode: AgentMode,
   ): string {
-    const mode = AgentModeRegistry.get(
-      this.settingsStore.getSettings().activeAgentMode,
-    );
     const activeSelection = this.profileContextStore.getActiveSelection();
     const parts: string[] = [
       "You are the AI reasoning layer of Browso.",
       `Active profile: ${activeSelection.profile.name}.`,
       `Active context: ${activeSelection.context.name}.`,
-      `Active agent mode: ${mode.label}.`,
+      `Automatically selected agent mode: ${mode.label}.`,
       `Mode purpose: ${mode.description}`,
       `Allowed mode tools: ${mode.tools.join(", ")}.`,
       ...mode.systemInstructions,

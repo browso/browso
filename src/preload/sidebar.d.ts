@@ -106,13 +106,17 @@ interface AISettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode: AgentModeId;
 }
 
 interface ProfileContextState {
   activeProfileId: string;
   activeContextId: string;
-  profiles: Array<{ id: string; name: string }>;
+  profiles: Array<{
+    id: string;
+    name: string;
+    icon: "person" | "briefcase" | "graduation" | "globe";
+    color: "blue" | "purple" | "green" | "orange" | "red" | "gray";
+  }>;
   contexts: Array<{
     id: string;
     profileId: string;
@@ -121,14 +125,6 @@ interface ProfileContextState {
   }>;
 }
 
-type AgentModeId =
-  | "copilot"
-  | "research"
-  | "shopping"
-  | "scraper"
-  | "developer"
-  | "security";
-
 interface BrowserPageContext {
   tabId: string;
   title: string;
@@ -136,14 +132,6 @@ interface BrowserPageContext {
   selection: string;
   text: string;
   capturedAt: number;
-}
-
-interface AgentMode {
-  id: AgentModeId;
-  label: string;
-  description: string;
-  tools: string[];
-  systemInstructions: string[];
 }
 
 interface KnowledgePage {
@@ -194,6 +182,7 @@ interface SidebarAPI {
       }>,
     ) => void,
   ) => () => void;
+  onAIDraftRequested: (callback: (message: string) => void) => () => void;
 
   // Page content access
   getPageContent: () => Promise<string | null>;
@@ -201,7 +190,6 @@ interface SidebarAPI {
   getCurrentUrl: () => Promise<string | null>;
   getCurrentPageContext: () => Promise<BrowserPageContext | null>;
   getOpenTabContexts: () => Promise<BrowserPageContext[]>;
-  listAgentModes: () => Promise<AgentMode[]>;
   listKnowledge: () => Promise<KnowledgePage[]>;
   saveCurrentPage: (note?: string) => Promise<KnowledgePage>;
   searchKnowledge: (
@@ -224,7 +212,7 @@ interface SidebarAPI {
   getAppSettings: () => Promise<AISettings>;
   updateAppSettings: (settings: Partial<AISettings>) => Promise<AISettings>;
   getProfilesAndContexts: () => Promise<ProfileContextState>;
-  switchContext: (id: string) => Promise<ProfileContextState>;
+  openSettings: () => Promise<void>;
   onProfilesAndContextsUpdated: (
     callback: (state: ProfileContextState) => void,
   ) => () => void;

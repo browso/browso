@@ -22,8 +22,9 @@ test("settings data actions have matching preload and main-process channels", ()
 test("site data and cache are cleared through Electron session APIs", () => {
   const source = read("src/main/EventManager.ts");
 
-  assert.match(source, /session\.defaultSession\.clearStorageData/);
-  assert.match(source, /session\.defaultSession\.clearCache/);
+  assert.match(source, /activeTab\?\.webContents\.session/);
+  assert.match(source, /activeSession\.clearStorageData/);
+  assert.match(source, /activeSession\.clearCache/);
   assert.match(source, /"cookies"/);
   assert.match(source, /"localstorage"/);
 });

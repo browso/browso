@@ -5,9 +5,20 @@ import { dirname, join } from "path";
 export interface BrowserProfile {
   id: string;
   name: string;
+  icon: ProfileIcon;
+  color: ProfileColor;
   createdAt: number;
   updatedAt: number;
 }
+
+export type ProfileIcon = "person" | "briefcase" | "graduation" | "globe";
+export type ProfileColor =
+  | "blue"
+  | "purple"
+  | "green"
+  | "orange"
+  | "red"
+  | "gray";
 
 export interface BrowserContext {
   id: string;
@@ -26,7 +37,7 @@ export interface ProfileContextState {
 }
 
 interface ProfileContextFile extends ProfileContextState {
-  version: 1;
+  version: 1 | 2;
 }
 
 const DEFAULT_PROFILE_ID = "profile-default";
@@ -72,13 +83,19 @@ export class ProfileContextStore {
     };
   }
 
-  createProfile(name: string): ProfileContextState {
+  createProfile(input: {
+    name: string;
+    icon: ProfileIcon;
+    color: ProfileColor;
+  }): ProfileContextState {
     const now = Date.now();
     const profileId = this.createId("profile");
     const contextId = this.createId("context");
     this.state.profiles.push({
       id: profileId,
-      name: name.trim(),
+      name: input.name.trim(),
+      icon: input.icon,
+      color: input.color,
       createdAt: now,
       updatedAt: now,
     });
@@ -97,8 +114,27 @@ export class ProfileContextStore {
   }
 
   renameProfile(id: string, name: string): ProfileContextState {
+    return this.updateProfile(id, { name });
+  }
+
+  updateProfile(
+    id: string,
+    input: {
+      name?: string;
+      icon?: ProfileIcon;
+      color?: ProfileColor;
+    },
+  ): ProfileContextState {
     const profile = this.requireProfile(id);
-    profile.name = name.trim();
+    if (typeof input.name === "string") {
+      profile.name = input.name.trim();
+    }
+    if (input.icon) {
+      profile.icon = input.icon;
+    }
+    if (input.color) {
+      profile.color = input.color;
+    }
     profile.updatedAt = Date.now();
     this.persist();
     return this.getState();
@@ -232,7 +268,7 @@ export class ProfileContextStore {
         readFileSync(this.filePath, "utf8"),
       ) as Partial<ProfileContextFile>;
       if (
-        parsed.version !== 1 ||
+        (parsed.version !== 1 && parsed.version !== 2) ||
         !Array.isArray(parsed.profiles) ||
         !Array.isArray(parsed.contexts) ||
         parsed.profiles.length === 0 ||
@@ -254,7 +290,11 @@ export class ProfileContextStore {
         ? {
             activeProfileId: parsed.activeProfileId,
             activeContextId: parsed.activeContextId,
-            profiles: parsed.profiles,
+            profiles: parsed.profiles.map((profile) => ({
+              ...profile,
+              icon: this.parseProfileIcon(profile.icon),
+              color: this.parseProfileColor(profile.color),
+            })),
             contexts: parsed.contexts,
           }
         : fallback;
@@ -272,6 +312,8 @@ export class ProfileContextStore {
         {
           id: DEFAULT_PROFILE_ID,
           name: "Personal",
+          icon: "person",
+          color: "blue",
           createdAt: now,
           updatedAt: now,
         },
@@ -309,9 +351,29 @@ export class ProfileContextStore {
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
   }
 
+  private parseProfileIcon(value: unknown): ProfileIcon {
+    return value === "person" ||
+      value === "briefcase" ||
+      value === "graduation" ||
+      value === "globe"
+      ? value
+      : "person";
+  }
+
+  private parseProfileColor(value: unknown): ProfileColor {
+    return value === "blue" ||
+      value === "purple" ||
+      value === "green" ||
+      value === "orange" ||
+      value === "red" ||
+      value === "gray"
+      ? value
+      : "blue";
+  }
+
   private persist(): void {
     const file: ProfileContextFile = {
-      version: 1,
+      version: 2,
       ...this.state,
     };
     mkdirSync(dirname(this.filePath), { recursive: true });

@@ -40,15 +40,13 @@ for (const modeId of modeIds) {
       /mutation/,
     );
   });
-
-  test(`settings schema accepts mode ${modeId}`, () => {
-    assert.equal(
-      ipcSchemas.settingsPatch.parse({ activeAgentMode: modeId })
-        .activeAgentMode,
-      modeId,
-    );
-  });
 }
+
+test("settings schema rejects renderer-controlled agent modes", () => {
+  assert.throws(() =>
+    ipcSchemas.settingsPatch.parse({ activeAgentMode: "research" }),
+  );
+});
 
 const invalidModes = [
   "",
@@ -116,15 +114,38 @@ for (const width of [-1, 0, 319, 320.5, 721, 1000, "400", null]) {
 
 for (const name of ["Work", "Personal", "A".repeat(80)]) {
   test(`profile schema accepts ${name.length}-character name`, () => {
-    assert.equal(ipcSchemas.profileCreate.parse({ name }).name, name);
+    assert.equal(
+      ipcSchemas.profileCreate.parse({
+        name,
+        icon: "briefcase",
+        color: "purple",
+      }).name,
+      name,
+    );
   });
 }
 
 for (const name of ["", " ", "A".repeat(81), null, 42]) {
   test(`profile schema rejects name ${JSON.stringify(name)}`, () => {
-    assert.throws(() => ipcSchemas.profileCreate.parse({ name }));
+    assert.throws(() =>
+      ipcSchemas.profileCreate.parse({
+        name,
+        icon: "person",
+        color: "blue",
+      }),
+    );
   });
 }
+
+test("profile schema rejects unsupported symbols and colors", () => {
+  assert.throws(() =>
+    ipcSchemas.profileCreate.parse({
+      name: "Work",
+      icon: "building",
+      color: "pink",
+    }),
+  );
+});
 
 test("context schema accepts a bounded description", () => {
   const parsed = ipcSchemas.contextCreate.parse({
@@ -195,18 +216,26 @@ for (const length of [0, 10_001, 20_000]) {
 }
 
 for (const engine of ["google", "duckduckgo", "bing"] as const) {
-  test(`welcome HTML renders Browso and ${engine}`, () => {
+  test(`welcome HTML renders focused Browso search for ${engine}`, () => {
     const html = buildWelcomePageHtml(engine);
     assert.match(html, /<title>Browso<\/title>/);
-    assert.match(html, /Browso/);
+    assert.match(html, /<h1>Browso<\/h1>/);
+    assert.match(html, /id="search-input"/);
+    assert.match(html, /autofocus/);
+    assert.match(html, />Ask AI<\/button>/);
+    assert.match(html, /#browso-ai=/);
     assert.match(
       html,
       new RegExp(
         engine === "duckduckgo"
-          ? "DuckDuckGo"
-          : engine[0].toUpperCase() + engine.slice(1),
+          ? "https://duckduckgo.com/"
+          : engine === "google"
+            ? "https://www.google.com/search"
+            : "https://www.bing.com/search",
       ),
     );
+    assert.doesNotMatch(html, /Welcome back/);
+    assert.doesNotMatch(html, /Default Search/);
     assert.doesNotMatch(html, /Blueberry Browser/i);
   });
 }

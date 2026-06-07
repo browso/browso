@@ -21,13 +21,6 @@ interface AppSettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode:
-    | "copilot"
-    | "research"
-    | "shopping"
-    | "scraper"
-    | "developer"
-    | "security";
 }
 
 interface UpdateState {
@@ -60,6 +53,8 @@ interface ProfileContextState {
   profiles: Array<{
     id: string;
     name: string;
+    icon: "person" | "briefcase" | "graduation" | "globe";
+    color: "blue" | "purple" | "green" | "orange" | "red" | "gray";
     createdAt: number;
     updatedAt: number;
   }>;
@@ -96,10 +91,21 @@ const settingsAPI = {
   clearCache: () => browsoAPI.ipcRenderer.invoke("settings-clear-cache"),
   getProfilesAndContexts: () =>
     browsoAPI.ipcRenderer.invoke("profiles-contexts-get"),
-  createProfile: (name: string) =>
-    browsoAPI.ipcRenderer.invoke("profile-create", { name }),
+  createProfile: (
+    name: string,
+    icon: "person" | "briefcase" | "graduation" | "globe",
+    color: "blue" | "purple" | "green" | "orange" | "red" | "gray",
+  ) => browsoAPI.ipcRenderer.invoke("profile-create", { name, icon, color }),
   renameProfile: (id: string, name: string) =>
     browsoAPI.ipcRenderer.invoke("profile-rename", { id, name }),
+  updateProfile: (
+    id: string,
+    input: {
+      name?: string;
+      icon?: "person" | "briefcase" | "graduation" | "globe";
+      color?: "blue" | "purple" | "green" | "orange" | "red" | "gray";
+    },
+  ) => browsoAPI.ipcRenderer.invoke("profile-update", { id, ...input }),
   deleteProfile: (id: string) =>
     browsoAPI.ipcRenderer.invoke("profile-delete", id),
   switchProfile: (id: string) =>
@@ -132,6 +138,8 @@ const settingsAPI = {
   onProfilesAndContextsUpdated: (
     callback: (state: ProfileContextState) => void,
   ) => subscribeToIpcChannel("profiles-contexts-updated", callback),
+  onSettingsSectionRequested: (callback: (section: string) => void) =>
+    subscribeToIpcChannel("settings-section-requested", callback),
 };
 
 const darkModeAPI = {

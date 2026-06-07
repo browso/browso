@@ -69,8 +69,22 @@ export class BrowserSettings {
     // Settings now lives in its own native window, so there are no embedded bounds to update.
   }
 
-  show(): void {
+  show(
+    section?: "general" | "profiles" | "ai" | "workspace" | "memory" | "data",
+  ): void {
     const settingsWindow = this.getOrCreateWindow();
+    if (section) {
+      if (settingsWindow.webContents.isLoading()) {
+        settingsWindow.webContents.once("did-finish-load", () => {
+          settingsWindow.webContents.send(
+            "settings-section-requested",
+            section,
+          );
+        });
+      } else {
+        settingsWindow.webContents.send("settings-section-requested", section);
+      }
+    }
     if (!settingsWindow.isVisible()) {
       settingsWindow.show();
     }

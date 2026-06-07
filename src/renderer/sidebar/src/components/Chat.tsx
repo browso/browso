@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bookmark, Bot, LoaderCircle, Plus, Send } from "lucide-react";
+import {
+  Bookmark,
+  Bot,
+  LoaderCircle,
+  Plus,
+  Send,
+  Settings2,
+} from "lucide-react";
 import { Button } from "@common/components/Button";
 import { cn } from "@common/lib/utils";
 
@@ -13,10 +20,6 @@ type ChatHistoryMessage = Awaited<
 type ComputerUseState = Awaited<
   ReturnType<typeof window.sidebarAPI.getComputerUseState>
 >;
-type AgentMode = Awaited<
-  ReturnType<typeof window.sidebarAPI.listAgentModes>
->[number];
-type AISettings = Awaited<ReturnType<typeof window.sidebarAPI.getAISettings>>;
 type ProfileContextState = Awaited<
   ReturnType<typeof window.sidebarAPI.getProfilesAndContexts>
 >;
@@ -38,10 +41,6 @@ const COMMAND_SUGGESTIONS = [
   {
     command: "/notes",
     description: "List recently saved pages.",
-  },
-  {
-    command: "/mode research",
-    description: "Change the active agent mode.",
   },
 ] as const;
 
@@ -106,8 +105,6 @@ export const Chat: React.FC = () => {
   const [streamingThought, setStreamingThought] = useState("");
   const [computerUseState, setComputerUseState] =
     useState<ComputerUseState | null>(null);
-  const [agentModes, setAgentModes] = useState<AgentMode[]>([]);
-  const [settings, setSettings] = useState<AISettings | null>(null);
   const [profileContextState, setProfileContextState] =
     useState<ProfileContextState | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -118,11 +115,18 @@ export const Chat: React.FC = () => {
     maxWidth: number;
   } | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const removeMessagesUpdatedListener = window.sidebarAPI.onMessagesUpdated(
       (history) => {
         setMessages(history as ChatHistoryMessage[]);
+      },
+    );
+    const removeAIDraftListener = window.sidebarAPI.onAIDraftRequested(
+      (message) => {
+        setDraft(message);
+        window.requestAnimationFrame(() => composerRef.current?.focus());
       },
     );
     const removeChatResponseListener = window.sidebarAPI.onChatResponse(
@@ -161,16 +165,12 @@ export const Chat: React.FC = () => {
         activeBrowserTab,
         sidebarLayout,
         computerUseState,
-        availableModes,
-        aiSettings,
         profilesAndContexts,
       ] = await Promise.all([
         window.sidebarAPI.getMessages(),
         window.sidebarAPI.getActiveTabInfo(),
         window.sidebarAPI.getSidebarLayout(),
         window.sidebarAPI.getComputerUseState(),
-        window.sidebarAPI.listAgentModes(),
-        window.sidebarAPI.getAISettings(),
         window.sidebarAPI.getProfilesAndContexts(),
       ]);
 
@@ -179,8 +179,6 @@ export const Chat: React.FC = () => {
       setLayout(sidebarLayout);
       setComputerUseState(computerUseState);
       setIsComputerUseRunning(Boolean(computerUseState?.isRunning));
-      setAgentModes(availableModes);
-      setSettings(aiSettings);
       setProfileContextState(profilesAndContexts);
     };
 
@@ -193,6 +191,7 @@ export const Chat: React.FC = () => {
     return () => {
       window.clearInterval(interval);
       removeMessagesUpdatedListener();
+      removeAIDraftListener();
       removeChatResponseListener();
       removeComputerUseStateListener();
       removeProfileContextListener();
@@ -308,22 +307,6 @@ export const Chat: React.FC = () => {
     }
   };
 
-  const changeMode = async (
-    mode: AISettings["activeAgentMode"],
-  ): Promise<void> => {
-    const updated = await window.sidebarAPI.updateAISettings({
-      activeAgentMode: mode,
-    });
-    setSettings(updated);
-  };
-
-  const changeContext = async (contextId: string): Promise<void> => {
-    const next = await window.sidebarAPI.switchContext(contextId);
-    setProfileContextState(next);
-    setIsSending(false);
-    setStreamingThought("");
-  };
-
   const saveCurrentPage = async (): Promise<void> => {
     setSaveStatus("Saving...");
     try {
@@ -346,51 +329,37 @@ export const Chat: React.FC = () => {
       </div>
 
       <div className="border-b border-border/80 px-4 py-3">
-        <div className="grid grid-cols-2 gap-2">
-          <select
-            value={settings?.activeAgentMode ?? "copilot"}
-            onChange={(event) =>
-              void changeMode(
-                event.target.value as AISettings["activeAgentMode"],
-              )
-            }
-            className="min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none"
-            aria-label="Agent mode"
-          >
-            {agentModes.map((mode) => (
-              <option key={mode.id} value={mode.id}>
-                {mode.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={profileContextState?.activeContextId ?? ""}
-            onChange={(event) => void changeContext(event.target.value)}
-            disabled={isComposerLocked}
-            className="min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground outline-none"
-            aria-label="Active context"
-          >
-            {(profileContextState?.contexts ?? []).map((context) => {
-              const profile = profileContextState?.profiles.find(
-                (entry) => entry.id === context.profileId,
-              );
-              return (
-                <option key={context.id} value={context.id}>
-                  {profile?.name ?? "Profile"} / {context.name}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-        <div className="mt-2 flex items-center justify-end">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => void saveCurrentPage()}
-            title="Save current page to local knowledge"
-          >
-            <Bookmark className="size-4" />
-          </Button>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold text-foreground">
+              {profileContextState?.profiles.find(
+                (profile) => profile.id === profileContextState.activeProfileId,
+              )?.name ?? "Personal"}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {profileContextState?.contexts.find(
+                (context) => context.id === profileContextState.activeContextId,
+              )?.name ?? "General"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => void window.sidebarAPI.openSettings()}
+              title="Manage profiles in Settings"
+            >
+              <Settings2 className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void saveCurrentPage()}
+              title="Save current page to local knowledge"
+            >
+              <Bookmark className="size-4" />
+            </Button>
+          </div>
         </div>
         <p className="mt-2 truncate text-xs text-muted-foreground">
           Active tab:{" "}
@@ -517,6 +486,7 @@ export const Chat: React.FC = () => {
       <div className="border-t border-border/80 px-4 py-4">
         <div className="rounded-[28px] border border-border bg-card p-3 shadow-sm">
           <textarea
+            ref={composerRef}
             aria-label="Ask Browso"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}

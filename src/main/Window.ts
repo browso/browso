@@ -6,6 +6,7 @@ import { AISettingsStore } from "./AISettings";
 import { BrowserSettings } from "./BrowserSettings";
 import { attachExternalWindowOpenHandler } from "./windowOpenHandler";
 import { APP_ICON_PATH } from "./appIcon";
+import { ProfileContextStore } from "./ProfileContextStore";
 
 export class Window {
   private _baseWindow: BaseWindow;
@@ -16,6 +17,7 @@ export class Window {
   private _topBar: TopBar;
   private _sideBar: SideBar;
   private _browserSettings: BrowserSettings;
+  private activeProfileId: string;
 
   constructor(options: { show?: boolean } = {}) {
     // Create the browser window.
@@ -35,6 +37,8 @@ export class Window {
     this._topBar = new TopBar(this._baseWindow);
     this._sideBar = new SideBar(this._baseWindow);
     this._browserSettings = new BrowserSettings(this._baseWindow);
+    this.activeProfileId =
+      ProfileContextStore.getInstance().getState().activeProfileId;
 
     // Set the window reference on the LLM client to avoid circular dependency
     this._sideBar.client.setWindow(this);
@@ -83,11 +87,13 @@ export class Window {
   }
 
   get allTabs(): Tab[] {
-    return Array.from(this.tabsMap.values());
+    return Array.from(this.tabsMap.values()).filter(
+      (tab) => tab.profileId === this.activeProfileId,
+    );
   }
 
   get tabCount(): number {
-    return this.tabsMap.size;
+    return this.allTabs.length;
   }
 
   // Tab management methods
@@ -95,7 +101,10 @@ export class Window {
     const initialUrl =
       url || AISettingsStore.getInstance().getSettings().homepage;
     const tabId = `tab-${++this.tabCounter}`;
-    const tab = new Tab(tabId, initialUrl);
+    const tab = new Tab(tabId, this.activeProfileId, initialUrl, (message) => {
+      this._sideBar.openWithDraft(message);
+      this.updateAllBounds();
+    });
     attachExternalWindowOpenHandler(tab.webContents, shell.openExternal);
     tab.webContents.on("focus", () => {
       if (this.isTabVisible(tabId)) {
@@ -111,7 +120,7 @@ export class Window {
     this.tabsMap.set(tabId, tab);
 
     // If this is the first tab, make it active
-    if (this.tabsMap.size === 1) {
+    if (this.allTabs.length === 1) {
       this.switchActiveTab(tabId);
     } else {
       // Hide the tab initially if it's not the first one
@@ -124,7 +133,7 @@ export class Window {
 
   closeTab(tabId: string): boolean {
     const tab = this.tabsMap.get(tabId);
-    if (!tab) {
+    if (!tab || tab.profileId !== this.activeProfileId) {
       return false;
     }
 
@@ -141,25 +150,23 @@ export class Window {
     // If this was the active tab, switch to another tab
     if (this.activeTabId === tabId) {
       this.activeTabId = null;
-      const remainingTabs = Array.from(this.tabsMap.keys());
+      const remainingTabs = this.allTabs.map((entry) => entry.id);
       if (remainingTabs.length > 0) {
         this.switchActiveTab(remainingTabs[0]);
       }
     }
 
-    // If no tabs left, close the window
-    if (this.tabsMap.size === 0) {
-      this._baseWindow.close();
-    } else {
-      this.updateTabBounds();
+    if (this.allTabs.length === 0) {
+      this.createTab();
     }
+    this.updateTabBounds();
 
     return true;
   }
 
   switchActiveTab(tabId: string): boolean {
     const tab = this.tabsMap.get(tabId);
-    if (!tab) {
+    if (!tab || tab.profileId !== this.activeProfileId) {
       return false;
     }
 
@@ -231,7 +238,23 @@ export class Window {
   }
 
   getTab(tabId: string): Tab | null {
-    return this.tabsMap.get(tabId) || null;
+    const tab = this.tabsMap.get(tabId);
+    return tab?.profileId === this.activeProfileId ? tab : null;
+  }
+
+  switchProfile(profileId: string): void {
+    if (profileId === this.activeProfileId) {
+      return;
+    }
+
+    this.tabsMap.forEach((tab) => tab.hide());
+    this.activeProfileId = profileId;
+    this.activeTabId = null;
+    this.splitTabIds = null;
+
+    const profileTabs = this.allTabs;
+    const nextTab = profileTabs[0] ?? this.createTab();
+    this.switchActiveTab(nextTab.id);
   }
 
   // Window methods
@@ -328,6 +351,10 @@ export class Window {
     }
 
     this.tabsMap.forEach((tab) => {
+      if (tab.profileId !== this.activeProfileId) {
+        tab.hide();
+        return;
+      }
       tab.view.setBounds({
         x: 0,
         y: 88, // Start below the topbar
@@ -411,7 +438,7 @@ export class Window {
 
   // Getter for all tabs as array
   get tabs(): Tab[] {
-    return Array.from(this.tabsMap.values());
+    return this.allTabs;
   }
 
   // Getter for baseWindow to access from Menu

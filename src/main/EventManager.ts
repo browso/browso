@@ -1,4 +1,4 @@
-import { ipcMain, session, WebContents } from "electron";
+import { ipcMain, WebContents } from "electron";
 import type { Window } from "./Window";
 import { AISettingsStore } from "./AISettings";
 import { logger } from "./Logger";
@@ -7,7 +7,6 @@ import { UpdateManager } from "./UpdateManager";
 import { ipcSchemas, parseIpcInput } from "./ipcSchemas";
 import { BrowserContextService } from "./BrowserContextService";
 import { KnowledgeStore } from "./KnowledgeStore";
-import { AgentModeRegistry } from "./AgentModes";
 import {
   ProfileContextStore,
   type ProfileContextState,
@@ -79,7 +78,6 @@ export class EventManager {
     "memory-clear",
     "browser-context-current",
     "browser-context-tabs",
-    "agent-modes-list",
     "knowledge-list",
     "knowledge-save-current",
     "knowledge-search",
@@ -88,6 +86,7 @@ export class EventManager {
     "profiles-contexts-get",
     "profile-create",
     "profile-rename",
+    "profile-update",
     "profile-delete",
     "profile-switch",
     "context-create",
@@ -206,7 +205,7 @@ export class EventManager {
         "profile-create",
       );
       return this.applyProfileContextChange(() =>
-        this.profileContextStore.createProfile(payload.name),
+        this.profileContextStore.createProfile(payload),
       );
     });
 
@@ -218,6 +217,18 @@ export class EventManager {
       );
       return this.applyProfileContextChange(
         () => this.profileContextStore.renameProfile(payload.id, payload.name),
+        false,
+      );
+    });
+
+    ipcMain.handle("profile-update", (_, input) => {
+      const payload = parseIpcInput(
+        ipcSchemas.profileUpdate,
+        input,
+        "profile-update",
+      );
+      return this.applyProfileContextChange(
+        () => this.profileContextStore.updateProfile(payload.id, payload),
         false,
       );
     });
@@ -315,7 +326,12 @@ export class EventManager {
       );
     }
     const previousContextId = this.profileContextStore.getActiveContextId();
+    const previousProfileId =
+      this.profileContextStore.getState().activeProfileId;
     const state = change();
+    if (state.activeProfileId !== previousProfileId) {
+      mainWindow.switchProfile(state.activeProfileId);
+    }
     if (state.activeContextId !== previousContextId) {
       mainWindow.sidebar.client.switchContext(state.activeContextId);
     }
@@ -342,7 +358,12 @@ export class EventManager {
 
     ipcMain.handle("settings-clear-site-data", async () => {
       this.logChannel("settings-clear-site-data");
-      await session.defaultSession.clearStorageData({
+      const activeSession =
+        this.requireMainWindow().activeTab?.webContents.session;
+      if (!activeSession) {
+        throw new Error("No active profile session is available.");
+      }
+      await activeSession.clearStorageData({
         storages: [
           "cookies",
           "filesystem",
@@ -359,7 +380,12 @@ export class EventManager {
 
     ipcMain.handle("settings-clear-cache", async () => {
       this.logChannel("settings-clear-cache");
-      await session.defaultSession.clearCache();
+      const activeSession =
+        this.requireMainWindow().activeTab?.webContents.session;
+      if (!activeSession) {
+        throw new Error("No active profile session is available.");
+      }
+      await activeSession.clearCache();
       return { cleared: true };
     });
   }
@@ -607,10 +633,15 @@ export class EventManager {
       return true;
     });
 
-    ipcMain.handle("open-browser-settings", () => {
+    ipcMain.handle("open-browser-settings", (_, requestedSection) => {
       this.logChannel("open-browser-settings");
+      const section = parseIpcInput(
+        ipcSchemas.settingsSection,
+        requestedSection,
+        "open-browser-settings",
+      );
       const mainWindow = this.requireMainWindow();
-      mainWindow.browserSettings.show();
+      mainWindow.browserSettings.show(section);
       mainWindow.browserSettings.send("browser-settings-opened");
       return true;
     });
@@ -929,10 +960,6 @@ export class EventManager {
 
     ipcMain.handle("browser-context-tabs", async () => {
       return this.browserContext.getOpenTabContexts();
-    });
-
-    ipcMain.handle("agent-modes-list", () => {
-      return AgentModeRegistry.list();
     });
 
     ipcMain.handle("knowledge-list", () => {

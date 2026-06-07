@@ -122,6 +122,18 @@ export class SideBar {
     this.setupBounds();
   }
 
+  openWithDraft(message: string): void {
+    this.show();
+    const sendDraft = (): void => {
+      this.webContentsView.webContents.send("ai-draft-requested", message);
+    };
+    if (this.webContentsView.webContents.isLoading()) {
+      this.webContentsView.webContents.once("did-finish-load", sendDraft);
+    } else {
+      sendDraft();
+    }
+  }
+
   hide(): void {
     this.isVisible = false;
     this.webContentsView.setBounds({

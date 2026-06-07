@@ -5,10 +5,13 @@ import { cn } from "@common/lib/utils";
 import {
   BookOpen,
   Bot,
+  Briefcase,
+  Check,
   ChevronRight,
   Database,
   Download,
   Globe,
+  GraduationCap,
   HardDrive,
   History,
   LayoutPanelLeft,
@@ -16,6 +19,7 @@ import {
   Moon,
   Search,
   Sun,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -37,6 +41,8 @@ type UpdateState = Awaited<
 type ProfileContextState = Awaited<
   ReturnType<typeof window.settingsAPI.getProfilesAndContexts>
 >;
+type ProfileIcon = ProfileContextState["profiles"][number]["icon"];
+type ProfileColor = ProfileContextState["profiles"][number]["color"];
 type SettingsTab =
   | "general"
   | "profiles"
@@ -88,6 +94,32 @@ const cardClassName =
   "rounded-[24px] border border-border/70 bg-card/80 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur dark:shadow-[0_18px_48px_rgba(0,0,0,0.22)]";
 
 const MODEL_INPUT_COMMIT_DELAY_MS = 250;
+const profileIcons: Array<{
+  id: ProfileIcon;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { id: "person", label: "Personal", icon: UserRound },
+  { id: "briefcase", label: "Work", icon: Briefcase },
+  { id: "graduation", label: "Study", icon: GraduationCap },
+  { id: "globe", label: "Other", icon: Globe },
+];
+const profileColors: ProfileColor[] = [
+  "blue",
+  "purple",
+  "green",
+  "orange",
+  "red",
+  "gray",
+];
+const profileColorClasses: Record<ProfileColor, string> = {
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  green: "bg-emerald-500",
+  orange: "bg-orange-500",
+  red: "bg-rose-500",
+  gray: "bg-slate-500",
+};
 
 export const SettingsApp: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -98,6 +130,10 @@ export const SettingsApp: React.FC = () => {
   const [profileContextState, setProfileContextState] =
     useState<ProfileContextState | null>(null);
   const [newProfileName, setNewProfileName] = useState("");
+  const [newProfileIcon, setNewProfileIcon] =
+    useState<ProfileIcon>("briefcase");
+  const [newProfileColor, setNewProfileColor] =
+    useState<ProfileColor>("purple");
   const [newContextName, setNewContextName] = useState("");
   const [newContextDescription, setNewContextDescription] = useState("");
   const [profileActionStatus, setProfileActionStatus] = useState<string | null>(
@@ -126,6 +162,8 @@ export const SettingsApp: React.FC = () => {
           window.settingsAPI.getKnowledgePages().then(setKnowledgePages),
         ]);
       });
+    const removeSectionRequestListener =
+      window.settingsAPI.onSettingsSectionRequested(setActiveTab);
 
     const load = async (): Promise<void> => {
       const [
@@ -154,6 +192,7 @@ export const SettingsApp: React.FC = () => {
       removeAppSettingsListener();
       removeUpdateStateListener();
       removeProfileContextListener();
+      removeSectionRequestListener();
     };
   }, []);
 
@@ -652,33 +691,87 @@ export const SettingsApp: React.FC = () => {
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">
-                        Browser profiles
+                        Profiles
                       </h3>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Profiles organize separate work, personal, research, or
-                        project contexts.
+                        Keep Personal, Work, and other browsing separate. Each
+                        profile has its own AI conversations, memory, and saved
+                        knowledge.
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <select
-                      value={profileContextState.activeProfileId}
-                      onChange={(event) =>
-                        void runProfileAction("Profile switched.", () =>
-                          window.settingsAPI.switchProfile(event.target.value),
-                        )
-                      }
-                      className="rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
-                    >
-                      {profileContextState.profiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {profileContextState.profiles.map((profile) => {
+                      const isActive =
+                        profile.id === profileContextState.activeProfileId;
+                      const Icon =
+                        profileIcons.find((entry) => entry.id === profile.icon)
+                          ?.icon ?? UserRound;
+                      return (
+                        <button
+                          key={profile.id}
+                          type="button"
+                          onClick={() =>
+                            void runProfileAction("Profile switched.", () =>
+                              window.settingsAPI.switchProfile(profile.id),
+                            )
+                          }
+                          className={cn(
+                            "relative rounded-[22px] border p-4 text-left transition-all",
+                            isActive
+                              ? "border-foreground/30 bg-secondary shadow-sm"
+                              : "border-border bg-background/80 hover:border-foreground/20",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "flex size-11 items-center justify-center rounded-full text-white shadow-sm",
+                              profileColorClasses[profile.color],
+                            )}
+                          >
+                            <Icon className="size-5" />
+                          </div>
+                          <p className="mt-3 text-sm font-semibold text-foreground">
+                            {profile.name}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {
+                              profileContextState.contexts.filter(
+                                (context) => context.profileId === profile.id,
+                              ).length
+                            }{" "}
+                            workspace
+                            {profileContextState.contexts.filter(
+                              (context) => context.profileId === profile.id,
+                            ).length === 1
+                              ? ""
+                              : "s"}
+                          </p>
+                          {isActive && (
+                            <span className="absolute right-3 top-3 flex size-6 items-center justify-center rounded-full bg-foreground text-background">
+                              <Check className="size-3.5" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className={cardClassName}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        Configure active profile
+                      </h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Change how this profile appears in Browso.
+                      </p>
+                    </div>
                     <Button
-                      variant="outline"
+                      variant="ghost"
+                      size="sm"
                       disabled={profileContextState.profiles.length === 1}
                       onClick={() =>
                         void runProfileAction("Profile deleted.", () =>
@@ -688,11 +781,150 @@ export const SettingsApp: React.FC = () => {
                         )
                       }
                     >
-                      Delete Profile
+                      Delete
                     </Button>
                   </div>
 
-                  <div className="mt-4 flex gap-3">
+                  {(() => {
+                    const activeProfile = profileContextState.profiles.find(
+                      (profile) =>
+                        profile.id === profileContextState.activeProfileId,
+                    );
+                    if (!activeProfile) return null;
+
+                    return (
+                      <div className="mt-5 space-y-5">
+                        <div>
+                          <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                            Name
+                          </label>
+                          <input
+                            value={activeProfile.name}
+                            maxLength={80}
+                            onChange={(event) =>
+                              setProfileContextState((previous) =>
+                                previous
+                                  ? {
+                                      ...previous,
+                                      profiles: previous.profiles.map(
+                                        (profile) =>
+                                          profile.id === activeProfile.id
+                                            ? {
+                                                ...profile,
+                                                name: event.target.value,
+                                              }
+                                            : profile,
+                                      ),
+                                    }
+                                  : previous,
+                              )
+                            }
+                            onBlur={(event) => {
+                              const name = event.target.value.trim();
+                              if (!name) {
+                                void window.settingsAPI
+                                  .getProfilesAndContexts()
+                                  .then(setProfileContextState);
+                                return;
+                              }
+                              void runProfileAction("Profile updated.", () =>
+                                window.settingsAPI.updateProfile(
+                                  activeProfile.id,
+                                  { name },
+                                ),
+                              );
+                            }}
+                            className="w-full rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            Symbol
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {profileIcons.map((option) => {
+                              const Icon = option.icon;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  title={option.label}
+                                  onClick={() =>
+                                    void runProfileAction(
+                                      "Profile updated.",
+                                      () =>
+                                        window.settingsAPI.updateProfile(
+                                          activeProfile.id,
+                                          { icon: option.id },
+                                        ),
+                                    )
+                                  }
+                                  className={cn(
+                                    "flex size-11 items-center justify-center rounded-full border transition",
+                                    activeProfile.icon === option.id
+                                      ? "border-foreground bg-secondary"
+                                      : "border-border bg-background hover:bg-secondary/60",
+                                  )}
+                                >
+                                  <Icon className="size-4" />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            Color
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {profileColors.map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                title={color}
+                                onClick={() =>
+                                  void runProfileAction(
+                                    "Profile updated.",
+                                    () =>
+                                      window.settingsAPI.updateProfile(
+                                        activeProfile.id,
+                                        { color },
+                                      ),
+                                  )
+                                }
+                                className={cn(
+                                  "flex size-8 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition",
+                                  profileColorClasses[color],
+                                  activeProfile.color === color &&
+                                    "ring-2 ring-foreground",
+                                )}
+                              >
+                                {activeProfile.color === color && (
+                                  <Check className="size-3.5 text-white" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </section>
+
+                <section className={cardClassName}>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Add profile
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Create a separate space for work, school, or another part
+                      of your browsing.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-4">
                     <input
                       value={newProfileName}
                       onChange={(event) =>
@@ -700,16 +932,65 @@ export const SettingsApp: React.FC = () => {
                       }
                       placeholder="New profile name"
                       maxLength={80}
-                      className="min-w-0 flex-1 rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
+                      className="rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none"
                     />
+                    <div className="grid gap-2 sm:grid-cols-4">
+                      {profileIcons.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => {
+                              setNewProfileIcon(option.id);
+                              if (!newProfileName.trim()) {
+                                setNewProfileName(option.label);
+                              }
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-xs font-medium",
+                              newProfileIcon === option.id
+                                ? "border-foreground/30 bg-secondary"
+                                : "border-border bg-background",
+                            )}
+                          >
+                            <Icon className="size-4" />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {profileColors.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          onClick={() => setNewProfileColor(color)}
+                          className={cn(
+                            "size-7 rounded-full ring-offset-2 ring-offset-background",
+                            profileColorClasses[color],
+                            newProfileColor === color &&
+                              "ring-2 ring-foreground",
+                          )}
+                        />
+                      ))}
+                    </div>
                     <Button
+                      className="justify-self-start"
                       disabled={!newProfileName.trim()}
                       onClick={() =>
                         void runProfileAction("Profile created.", () =>
                           window.settingsAPI
-                            .createProfile(newProfileName)
+                            .createProfile(
+                              newProfileName,
+                              newProfileIcon,
+                              newProfileColor,
+                            )
                             .then((next) => {
                               setNewProfileName("");
+                              setNewProfileIcon("briefcase");
+                              setNewProfileColor("purple");
                               return next;
                             }),
                         )

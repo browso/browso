@@ -2,19 +2,20 @@ import type { SearchEngine } from "./AISettings";
 
 export const BROWSO_WELCOME_URL = "browso://welcome";
 export const LEGACY_BLUEBERRY_WELCOME_URL = "blueberry://welcome";
+export const BROWSO_AI_HASH_PREFIX = "#browso-ai=";
 
 export const isWelcomeUrl = (url: string): boolean =>
   url === BROWSO_WELCOME_URL || url === LEGACY_BLUEBERRY_WELCOME_URL;
 
-const searchEngineLabel = (searchEngine: SearchEngine): string => {
+const searchAction = (searchEngine: SearchEngine): string => {
   switch (searchEngine) {
     case "bing":
-      return "Bing";
+      return "https://www.bing.com/search";
     case "google":
-      return "Google";
+      return "https://www.google.com/search";
     case "duckduckgo":
     default:
-      return "DuckDuckGo";
+      return "https://duckduckgo.com/";
   }
 };
 
@@ -25,153 +26,145 @@ export const buildWelcomePageHtml = (
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action https:;" />
     <title>Browso</title>
     <style>
       :root {
         color-scheme: light dark;
-        --bg: #f5f7fa;
-        --panel: rgba(255, 255, 255, 0.82);
-        --panel-border: rgba(15, 23, 42, 0.08);
-        --text: #111827;
-        --muted: #5b6472;
-        --shadow: 0 30px 80px rgba(15, 23, 42, 0.10);
+        --background: #f8fafc;
+        --surface: #ffffff;
+        --text: #101828;
+        --muted: #667085;
+        --border: #dfe3e8;
+        --accent: #155eef;
+        --accent-hover: #004eeb;
+        --shadow: 0 16px 40px rgba(16, 24, 40, 0.10);
       }
-
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #0f141b;
-          --panel: rgba(19, 24, 32, 0.88);
-          --panel-border: rgba(255, 255, 255, 0.08);
-          --text: #f3f4f6;
-          --muted: #9ca3af;
-          --shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+          --background: #0b0f15;
+          --surface: #151a22;
+          --text: #f5f7fa;
+          --muted: #98a2b3;
+          --border: #2a303b;
+          --accent: #2e6cff;
+          --accent-hover: #477dff;
+          --shadow: 0 16px 44px rgba(0, 0, 0, 0.36);
         }
       }
-
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        overflow: hidden;
+        background: var(--background);
         color: var(--text);
-        background:
-          radial-gradient(circle at top left, rgba(148, 163, 184, 0.20), transparent 32%),
-          radial-gradient(circle at bottom right, rgba(100, 116, 139, 0.14), transparent 28%),
-          var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-
       main {
         min-height: 100vh;
         display: grid;
         place-items: center;
-        padding: 32px;
+        padding: 24px;
       }
-
-      .panel {
-        width: min(840px, 100%);
-        border: 1px solid var(--panel-border);
-        background: var(--panel);
-        backdrop-filter: blur(14px);
-        border-radius: 28px;
-        box-shadow: var(--shadow);
-        padding: 40px;
+      .home {
+        width: min(660px, 100%);
+        transform: translateY(-5vh);
+        text-align: center;
       }
-
-      .eyebrow {
-        margin: 0 0 10px;
-        font-size: 12px;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--muted);
-        font-weight: 700;
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 34px;
       }
-
+      .logo { width: 64px; height: 64px; display: block; }
       h1 {
         margin: 0;
-        font-size: clamp(36px, 7vw, 58px);
-        line-height: 0.95;
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
       }
-
-      .lede {
-        max-width: 54ch;
-        margin: 18px 0 0;
-        font-size: 16px;
-        line-height: 1.7;
-        color: var(--muted);
+      form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
       }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 14px;
-        margin-top: 28px;
+      input {
+        min-width: 0;
+        flex: 1;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        padding: 12px 14px;
+        font: inherit;
+        font-size: 17px;
       }
-
-      .card {
-        border-radius: 20px;
-        border: 1px solid var(--panel-border);
-        background: rgba(255, 255, 255, 0.42);
-        padding: 18px;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .card {
-          background: rgba(255, 255, 255, 0.03);
-        }
-      }
-
-      .card h2 {
-        margin: 0 0 8px;
+      input::placeholder { color: var(--muted); }
+      button {
+        height: 44px;
+        border: 0;
+        border-radius: 15px;
+        padding: 0 17px;
+        cursor: pointer;
+        font: inherit;
         font-size: 14px;
+        font-weight: 650;
       }
-
-      .card p {
-        margin: 0;
-        font-size: 14px;
-        line-height: 1.6;
-        color: var(--muted);
-      }
-
-      .footer {
-        margin-top: 26px;
-        font-size: 13px;
-        color: var(--muted);
+      .ai { background: transparent; color: var(--accent); }
+      .ai:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+      .search { background: var(--accent); color: white; }
+      .search:hover { background: var(--accent-hover); }
+      @media (max-width: 560px) {
+        .brand { margin-bottom: 24px; }
+        .logo { width: 52px; height: 52px; }
+        h1 { font-size: 34px; }
+        form { flex-wrap: wrap; }
+        input { flex-basis: 100%; }
+        button { flex: 1; }
       }
     </style>
   </head>
   <body>
     <main>
-      <section class="panel">
-        <p class="eyebrow">Browso</p>
-        <h1>Welcome back.</h1>
-        <p class="lede">
-          A focused browser workspace for browsing, automation, and local AI tools.
-          Search from the address bar, open Settings to tune the model, and switch the
-          search engine any time.
-        </p>
-
-        <div class="grid">
-          <article class="card">
-            <h2>Default Search</h2>
-            <p>Your new tabs will use ${searchEngineLabel(
-              searchEngine,
-            )} for address-bar searches.</p>
-          </article>
-          <article class="card">
-            <h2>Theme & Preferences</h2>
-            <p>Open Settings from the top bar to change theme, homepage, search engine, and AI setup.</p>
-          </article>
-          <article class="card">
-            <h2>Agent Workspace</h2>
-            <p>The right sidebar can search, analyze pages, and automate browser steps while showing its progress.</p>
-          </article>
+      <section class="home">
+        <div class="brand" aria-label="Browso">
+          <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="Browso logo">
+            <rect width="100" height="100" rx="24" fill="#05070a"/>
+            <path d="M22 29c0-7 5-12 12-12h32c7 0 12 5 12 12v42c0 7-5 12-12 12h-8m-16 0h-8c-7 0-12-5-12-12V29Z" fill="none" stroke="white" stroke-width="6" stroke-linecap="round"/>
+            <path d="M23 35h54" stroke="white" stroke-width="6"/>
+            <circle cx="34" cy="26" r="3" fill="white"/>
+            <circle cx="44" cy="26" r="3" fill="white"/>
+            <circle cx="54" cy="26" r="3" fill="white"/>
+            <circle cx="50" cy="59" r="9" fill="#155eef"/>
+            <path d="M40 69a20 20 0 0 1 2-23m18 0a20 20 0 0 1 1 24" fill="none" stroke="white" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <h1>Browso</h1>
         </div>
-
-        <p class="footer">Tip: type a website or search query in the address bar to start.</p>
+        <form action="${searchAction(searchEngine)}" method="get">
+          <input id="search-input" name="q" type="search" placeholder="Search the web" autocomplete="off" autofocus aria-label="Search the web" />
+          <button id="ai-button" class="ai" type="button">Ask AI</button>
+          <button class="search" type="submit">Search</button>
+        </form>
       </section>
     </main>
+    <script>
+      const input = document.getElementById("search-input");
+      const focusSearch = () => {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      };
+      document.getElementById("ai-button").addEventListener("click", () => {
+        location.hash = "${BROWSO_AI_HASH_PREFIX}" + encodeURIComponent(input.value.trim());
+      });
+      window.addEventListener("load", focusSearch);
+      focusSearch();
+    </script>
   </body>
 </html>`;

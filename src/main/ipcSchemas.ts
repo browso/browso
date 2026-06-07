@@ -3,15 +3,6 @@ import { isAllowedNavigationTarget } from "./navigationPolicy.ts";
 
 const providerSchema = z.enum(["ollama", "openai", "anthropic"]);
 const searchEngineSchema = z.enum(["google", "duckduckgo", "bing"]);
-const agentModeSchema = z.enum([
-  "copilot",
-  "research",
-  "shopping",
-  "scraper",
-  "developer",
-  "security",
-]);
-
 const navigationTargetSchema = z
   .string()
   .trim()
@@ -19,18 +10,51 @@ const navigationTargetSchema = z
   .refine(isAllowedNavigationTarget, "Unsupported navigation URL");
 const profileContextIdSchema = z.string().trim().min(1).max(256);
 const profileContextNameSchema = z.string().trim().min(1).max(80);
+const profileIconSchema = z.enum([
+  "person",
+  "briefcase",
+  "graduation",
+  "globe",
+]);
+const profileColorSchema = z.enum([
+  "blue",
+  "purple",
+  "green",
+  "orange",
+  "red",
+  "gray",
+]);
 
 export const ipcSchemas = {
+  settingsSection: z
+    .enum(["general", "profiles", "ai", "workspace", "memory", "data"])
+    .optional(),
   optionalNavigationTarget: navigationTargetSchema.optional(),
   tabId: z.string().trim().min(1),
   profileContextId: profileContextIdSchema,
   profileCreate: z.object({
     name: profileContextNameSchema,
+    icon: profileIconSchema,
+    color: profileColorSchema,
   }),
   profileRename: z.object({
     id: profileContextIdSchema,
     name: profileContextNameSchema,
   }),
+  profileUpdate: z
+    .object({
+      id: profileContextIdSchema,
+      name: profileContextNameSchema.optional(),
+      icon: profileIconSchema.optional(),
+      color: profileColorSchema.optional(),
+    })
+    .refine(
+      (value) =>
+        typeof value.name === "string" ||
+        typeof value.icon === "string" ||
+        typeof value.color === "string",
+      "Profile update must not be empty",
+    ),
   contextCreate: z.object({
     profileId: profileContextIdSchema,
     name: profileContextNameSchema,
@@ -97,7 +121,6 @@ export const ipcSchemas = {
       autoRouteToSandbox: z.boolean().optional(),
       sidebarWidth: z.number().int().min(320).max(720).optional(),
       memoryEnabled: z.boolean().optional(),
-      activeAgentMode: agentModeSchema.optional(),
     })
     .strict(),
 };

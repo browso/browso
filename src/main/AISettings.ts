@@ -5,7 +5,6 @@ import {
   LEGACY_BLUEBERRY_WELCOME_URL,
   BROWSO_WELCOME_URL,
 } from "./WelcomePage";
-import type { AgentModeId } from "./AgentModes";
 import { normalizeHomepage } from "./navigationPolicy.ts";
 
 export type LLMProvider = "ollama" | "openai" | "anthropic";
@@ -20,7 +19,6 @@ export interface AISettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode: AgentModeId;
 }
 
 const DEFAULTS: Record<LLMProvider, { model: string }> = {
@@ -37,7 +35,6 @@ const DEFAULT_SEARCH_ENGINE: SearchEngine = "duckduckgo";
 const DEFAULT_SIDEBAR_WIDTH = 400;
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MEMORY_ENABLED = true;
-const DEFAULT_AGENT_MODE: AgentModeId = "copilot";
 
 export class AISettingsStore {
   private static instance: AISettingsStore | null = null;
@@ -95,10 +92,6 @@ export class AISettingsStore {
         input.memoryEnabled ??
         this.settings.memoryEnabled ??
         DEFAULT_MEMORY_ENABLED,
-      activeAgentMode:
-        input.activeAgentMode ??
-        this.settings.activeAgentMode ??
-        DEFAULT_AGENT_MODE,
     };
 
     if (input.provider && !input.model) {
@@ -160,7 +153,6 @@ export class AISettingsStore {
           typeof parsed.memoryEnabled === "boolean"
             ? parsed.memoryEnabled
             : fallback.memoryEnabled,
-        activeAgentMode: this.parseAgentMode(parsed.activeAgentMode),
       };
     } catch {
       return fallback;
@@ -195,7 +187,6 @@ export class AISettingsStore {
       autoRouteToSandbox: true,
       sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
       memoryEnabled: DEFAULT_MEMORY_ENABLED,
-      activeAgentMode: DEFAULT_AGENT_MODE,
     };
   }
 
@@ -211,20 +202,6 @@ export class AISettingsStore {
       return value;
     }
     return null;
-  }
-
-  private parseAgentMode(value: AgentModeId | undefined): AgentModeId {
-    if (
-      value === "copilot" ||
-      value === "research" ||
-      value === "shopping" ||
-      value === "scraper" ||
-      value === "developer" ||
-      value === "security"
-    ) {
-      return value;
-    }
-    return DEFAULT_AGENT_MODE;
   }
 
   private parseSidebarWidth(value: number): number {

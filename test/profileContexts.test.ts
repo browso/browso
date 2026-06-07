@@ -11,6 +11,7 @@ test("profile and context IPC channels have settings preload handlers", () => {
   for (const channel of [
     "profiles-contexts-get",
     "profile-create",
+    "profile-update",
     "profile-delete",
     "profile-switch",
     "context-create",
@@ -34,6 +35,28 @@ test("memory and knowledge persist data by active context", () => {
   }
 });
 
+test("browser profiles use separate persistent sessions and tab sets", () => {
+  const tab = read("src/main/Tab.ts");
+  const window = read("src/main/Window.ts");
+
+  assert.match(tab, /persist:browso-profile-\$\{profileId\}/);
+  assert.match(tab, /get profileId/);
+  assert.match(window, /switchProfile\(profileId: string\)/);
+  assert.match(window, /tab\.profileId === this\.activeProfileId/);
+});
+
+test("welcome page can hand a search draft to the AI sidebar", () => {
+  const tab = read("src/main/Tab.ts");
+  const sidebar = read("src/main/SideBar.ts");
+  const chat = read("src/renderer/sidebar/src/components/Chat.tsx");
+
+  assert.match(tab, /BROWSO_AI_HASH_PREFIX/);
+  assert.match(sidebar, /openWithDraft\(message: string\)/);
+  assert.match(sidebar, /"ai-draft-requested"/);
+  assert.match(chat, /onAIDraftRequested/);
+  assert.match(chat, /composerRef\.current\?\.focus/);
+});
+
 test("AI conversations switch by context and context purpose enters prompts", () => {
   const source = read("src/main/LLMClient.ts");
 
@@ -52,6 +75,9 @@ test("settings and AI panel expose profile context controls", () => {
   assert.match(settings, /label: "Profiles"/);
   assert.match(settings, /Add Profile/);
   assert.match(settings, /Add Context/);
+  assert.match(settings, /Configure active profile/);
+  assert.match(settings, /profileColors/);
   assert.match(settings, /Every context has separate AI conversation/);
-  assert.match(chat, /aria-label="Active context"/);
+  assert.match(chat, /Manage profiles in Settings/);
+  assert.doesNotMatch(chat, /aria-label="Active context"/);
 });

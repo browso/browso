@@ -1,6 +1,7 @@
 import { NativeImage, WebContentsView, type WebContents } from "electron";
 import { AISettingsStore } from "./AISettings";
 import {
+  BROWSO_AI_HASH_PREFIX,
   BROWSO_WELCOME_URL,
   buildWelcomePageHtml,
   isWelcomeUrl,
@@ -12,9 +13,16 @@ export class Tab {
   private _title: string;
   private _url: string;
   private _isVisible: boolean = false;
+  private readonly _profileId: string;
 
-  constructor(id: string, url: string = "https://www.google.com") {
+  constructor(
+    id: string,
+    profileId: string,
+    url: string = "https://www.google.com",
+    private readonly onAIRequest?: (message: string) => void,
+  ) {
     this._id = id;
+    this._profileId = profileId;
     this._url = url;
     this._title = "New Tab";
 
@@ -25,6 +33,7 @@ export class Tab {
         contextIsolation: true,
         sandbox: true,
         webSecurity: true,
+        partition: `persist:browso-profile-${profileId}`,
       },
     });
 
@@ -51,6 +60,13 @@ export class Tab {
 
     this.webContentsView.webContents.on("did-navigate-in-page", (_, url) => {
       if (isWelcomeUrl(this._url) && url.startsWith("data:text/html")) {
+        const hash = new URL(url).hash;
+        if (hash.startsWith(BROWSO_AI_HASH_PREFIX)) {
+          this.onAIRequest?.(
+            decodeURIComponent(hash.slice(BROWSO_AI_HASH_PREFIX.length)),
+          );
+          void this.runJs('location.hash = ""');
+        }
         return;
       }
       this._url = url;
@@ -64,6 +80,10 @@ export class Tab {
 
   get title(): string {
     return this._title;
+  }
+
+  get profileId(): string {
+    return this._profileId;
   }
 
   get url(): string {
@@ -86,6 +106,7 @@ export class Tab {
   show(): void {
     this._isVisible = true;
     this.webContentsView.setVisible(true);
+    this.focusWelcomeSearch();
   }
 
   hide(): void {
@@ -155,5 +176,24 @@ export class Tab {
 
   destroy(): void {
     this.webContentsView.webContents.close();
+  }
+
+  private focusWelcomeSearch(): void {
+    if (!isWelcomeUrl(this._url)) {
+      return;
+    }
+
+    const focus = (): void => {
+      this.webContentsView.webContents.focus();
+      void this.runJs(
+        'document.getElementById("search-input")?.focus({ preventScroll: true })',
+      ).catch(() => undefined);
+    };
+
+    if (this.webContentsView.webContents.isLoading()) {
+      this.webContentsView.webContents.once("did-finish-load", focus);
+    } else {
+      focus();
+    }
   }
 }

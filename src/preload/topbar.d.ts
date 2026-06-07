@@ -23,13 +23,6 @@ interface AppSettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode:
-    | "copilot"
-    | "research"
-    | "shopping"
-    | "scraper"
-    | "developer"
-    | "security";
 }
 
 interface UpdateState {

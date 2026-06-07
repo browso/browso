@@ -110,16 +110,25 @@ ollama pull gemma4:e2b
 
 ## Commands
 
-| Command          | Action                              |
-| ---------------- | ----------------------------------- |
-| `/help`          | Show local commands                 |
-| `/save [note]`   | Save or update the current page     |
-| `/notes`         | List recently saved pages           |
-| `/mode`          | Show the active and available modes |
-| `/mode research` | Change the active mode              |
-| `@text`          | Save a user-memory instruction      |
+| Command        | Action                          |
+| -------------- | ------------------------------- |
+| `/help`        | Show local commands             |
+| `/save [note]` | Save or update the current page |
+| `/notes`       | List recently saved pages       |
+| `@text`        | Save a user-memory instruction  |
 
 `Enter` sends a message. `Shift+Enter` inserts a newline.
+
+Agent modes are selected automatically by the backend for each request. Users
+cannot manually set Copilot, Research, Shopping, Scraper, Developer, or Security
+mode.
+
+## Profiles
+
+Profiles are created, switched, and configured in **Settings > Profiles**.
+Personal, Work, Study, and custom profiles can use different symbols and colors.
+Each profile keeps separate tabs, cookies, site storage, AI conversations,
+memory, and saved knowledge.
 
 ## Verification
 

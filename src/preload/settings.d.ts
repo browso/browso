@@ -7,13 +7,6 @@ interface AppSettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
-  activeAgentMode:
-    | "copilot"
-    | "research"
-    | "shopping"
-    | "scraper"
-    | "developer"
-    | "security";
 }
 
 interface MemoryEntry {
@@ -62,6 +55,8 @@ interface KnowledgePage {
 interface BrowserProfile {
   id: string;
   name: string;
+  icon: "person" | "briefcase" | "graduation" | "globe";
+  color: "blue" | "purple" | "green" | "orange" | "red" | "gray";
   createdAt: number;
   updatedAt: number;
 }
@@ -102,8 +97,20 @@ interface SettingsAPI {
   clearSiteData: () => Promise<{ cleared: boolean }>;
   clearCache: () => Promise<{ cleared: boolean }>;
   getProfilesAndContexts: () => Promise<ProfileContextState>;
-  createProfile: (name: string) => Promise<ProfileContextState>;
+  createProfile: (
+    name: string,
+    icon: BrowserProfile["icon"],
+    color: BrowserProfile["color"],
+  ) => Promise<ProfileContextState>;
   renameProfile: (id: string, name: string) => Promise<ProfileContextState>;
+  updateProfile: (
+    id: string,
+    input: {
+      name?: string;
+      icon?: BrowserProfile["icon"];
+      color?: BrowserProfile["color"];
+    },
+  ) => Promise<ProfileContextState>;
   deleteProfile: (id: string) => Promise<ProfileContextState>;
   switchProfile: (id: string) => Promise<ProfileContextState>;
   createContext: (
@@ -129,6 +136,11 @@ interface SettingsAPI {
   onUpdateStateChanged: (callback: (state: UpdateState) => void) => () => void;
   onProfilesAndContextsUpdated: (
     callback: (state: ProfileContextState) => void,
+  ) => () => void;
+  onSettingsSectionRequested: (
+    callback: (
+      section: "general" | "profiles" | "ai" | "workspace" | "memory" | "data",
+    ) => void,
   ) => () => void;
 }
 
