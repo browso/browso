@@ -220,10 +220,21 @@ for (const engine of ["google", "duckduckgo", "bing"] as const) {
     const html = buildWelcomePageHtml(engine);
     assert.match(html, /<title>Browso<\/title>/);
     assert.match(html, /<h1>Browso<\/h1>/);
+    assert.match(html, /<img class="logo" src="data:image\/png;base64,/);
+    assert.doesNotMatch(html, /<svg class="logo"/);
     assert.match(html, /id="search-input"/);
     assert.match(html, /autofocus/);
-    assert.match(html, />Ask AI<\/button>/);
+    assert.match(html, /id="ai-mode" type="checkbox" role="switch"/);
+    assert.match(
+      html,
+      /submitButton\.textContent = enabled \? "Ask AI" : "Search"/,
+    );
+    assert.match(html, /if \(!aiMode\.checked\) return/);
+    assert.match(html, /event\.preventDefault\(\)/);
     assert.match(html, /#browso-ai=/);
+    assert.match(html, /--foreground: #141414/);
+    assert.match(html, /--secondary: #f5f5f5/);
+    assert.doesNotMatch(html, /#155eef|#004eeb|#2e6cff|#477dff/i);
     assert.match(
       html,
       new RegExp(

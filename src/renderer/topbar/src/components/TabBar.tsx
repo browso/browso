@@ -5,6 +5,12 @@ import { Favicon } from "../components/Favicon";
 import { TabBarButton } from "../components/TabBarButton";
 import { cn } from "@common/lib/utils";
 
+const INTERNAL_WELCOME_URLS = new Set([
+  "browso://welcome",
+  "blueberry://welcome",
+]);
+const BROWSO_ICON_URL = "/icon.png";
+
 interface TabItemProps {
   id: string;
   title: string;
@@ -82,6 +88,10 @@ export const TabBar: React.FC = () => {
 
   // Extract favicon from URL (simplified - you might want to improve this)
   const getFavicon = (url: string): string | null => {
+    if (INTERNAL_WELCOME_URLS.has(url)) {
+      return BROWSO_ICON_URL;
+    }
+
     try {
       const domain = new URL(url).hostname;
       return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;

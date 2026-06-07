@@ -16,6 +16,7 @@ const INTERNAL_WELCOME_URLS = new Set([
   "browso://welcome",
   "blueberry://welcome",
 ]);
+const BROWSO_ICON_URL = "/icon.png";
 
 type SearchEngine = "google" | "duckduckgo" | "bing";
 
@@ -83,7 +84,7 @@ function getPath(tab: AddressTab | null): string {
 
 function getFavicon(tab: AddressTab | null): string | null {
   if (!tab?.url) return null;
-  if (INTERNAL_WELCOME_URLS.has(tab.url)) return null;
+  if (INTERNAL_WELCOME_URLS.has(tab.url)) return BROWSO_ICON_URL;
   try {
     const domain = new URL(tab.url).hostname;
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;

@@ -1,3 +1,5 @@
-import { join } from "path";
+import { fileURLToPath } from "node:url";
 
-export const APP_ICON_PATH = join(__dirname, "../../resources/icon.png");
+export const APP_ICON_PATH = fileURLToPath(
+  new URL("../../resources/icon.png", import.meta.url),
+);
