@@ -11,6 +11,7 @@ test("packaged application uses electron-updater install flow", () => {
   assert.match(source, /downloadUpdate\(\)/);
   assert.match(source, /quitAndInstall\(false, true\)/);
   assert.match(source, /autoDownload = false/);
+  assert.match(source, /allowPrerelease = false/);
 });
 
 test("builder emits architecture-specific update metadata", () => {
@@ -27,7 +28,15 @@ test("builder emits architecture-specific update metadata", () => {
 test("release workflow publishes versioned updater artifacts", () => {
   const workflow = read(".github/workflows/ci-release.yml");
 
-  assert.match(workflow, /RELEASE_TAG=v\$version/);
+  assert.match(workflow, /scripts\/release-plan\.mjs/);
+  assert.match(
+    workflow,
+    /needs\.release_plan\.outputs\.should_release == 'true'/,
+  );
+  assert.match(
+    workflow,
+    /npm version "\$\{\{ needs\.release_plan\.outputs\.version \}\}"/,
+  );
   assert.match(workflow, /mac-arm64-mac\.yml/);
   assert.match(workflow, /win-x64\.yml/);
   assert.match(workflow, /linux-x64-linux\.yml/);
@@ -36,4 +45,7 @@ test("release workflow publishes versioned updater artifacts", () => {
   assert.doesNotMatch(workflow, /--clobber/);
   assert.doesNotMatch(workflow, /gh release edit/);
   assert.doesNotMatch(workflow, /gh release delete/);
+  assert.doesNotMatch(workflow, /--prerelease/);
+  assert.match(workflow, /browso-release-published/);
+  assert.match(workflow, /releases\.html#\$\{RELEASE_TAG\}/);
 });

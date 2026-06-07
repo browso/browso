@@ -6,6 +6,16 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Optional stable release to publish"
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - "none"
+          - "minor"
+          - "major"
 
 permissions:
   contents: read
@@ -111,10 +121,57 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  package:
-    name: 4. Release Build - ${{ matrix.label }}
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  release_plan:
+    name: 4. Plan Release
     needs: testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_release: ${{ steps.plan.outputs.should_release }}
+      release_type: ${{ steps.plan.outputs.release_type }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve stable release plan
+        id: plan
+        env:
+          RELEASE_COMMIT_MESSAGE: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+            format('[release: {0}]', inputs.release_type) ||
+            github.event.head_commit.message }}
+        run: |
+          node scripts/release-plan.mjs > release-plan.json
+          cat release-plan.json
+          {
+            echo "should_release=$(jq -r '.shouldRelease' release-plan.json)"
+            echo "release_type=$(jq -r '.releaseType // empty' release-plan.json)"
+            echo "version=$(jq -r '.version // empty' release-plan.json)"
+            echo "tag=$(jq -r '.tag // empty' release-plan.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload release plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-plan-${{ github.sha }}
+          path: release-plan.json
+          if-no-files-found: error
+          retention-days: 30
+
+  package:
+    name: 5. Release Build - ${{ matrix.label }}
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.release_plan.outputs.should_release == 'true'
+    needs:
+      - testing
+      - release_plan
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
@@ -164,6 +221,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Apply release version
+        run: npm version "${{ needs.release_plan.outputs.version }}" --no-git-tag-version
 
       - name: Install dependencies
         run: npm ci
@@ -340,9 +400,14 @@ jobs:
           retention-days: 7
 
   publish_release:
-    name: 5. Publish Release
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: package
+    name: 6. Publish Release
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.release_plan.outputs.should_release == 'true'
+    needs:
+      - release_plan
+      - package
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -361,17 +426,16 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Download release plan
+        uses: actions/download-artifact@v4
+        with:
+          name: release-plan-${{ github.sha }}
+          path: release-plan
+
       - name: Resolve release version
-        shell: bash
         run: |
-          version="$(node -p "require('./package.json').version")"
-          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
-          echo "RELEASE_TAG=v$version" >> "$GITHUB_ENV"
-          if [[ "$version" == *-* ]]; then
-            echo "RELEASE_IS_PRERELEASE=true" >> "$GITHUB_ENV"
-          else
-            echo "RELEASE_IS_PRERELEASE=false" >> "$GITHUB_ENV"
-          fi
+          echo "RELEASE_VERSION=${{ needs.release_plan.outputs.version }}" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=${{ needs.release_plan.outputs.tag }}" >> "$GITHUB_ENV"
 
       - name: Verify release assets
         run: |
@@ -387,56 +451,79 @@ jobs:
             ! -name '*.yml' ! -name '*.blockmap' ! -name 'SHA256SUMS.txt' \
             -print0 | sort -z | xargs -0 sha256sum > release-assets/SHA256SUMS.txt
 
-      - name: Write release notes
-        run: |
-          cat > release-notes.md <<EOF
-          Browso ${RELEASE_TAG}.
-
-          ## Downloads
-
-          - \`browso-linux-x86-64.AppImage\`
-          - \`browso-mac-apple-silicon.dmg\`
-          - \`browso-mac-mac-intel.dmg\`
-          - \`browso-win-x64.exe\`
-          - **Checksums:** \`SHA256SUMS.txt\`
-
-          Installed applications use the architecture-specific update metadata
-          in this release to download and install updates in place.
-          EOF
-
       - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists; leaving its immutable assets unchanged."
-            echo "Increment package.json version to publish a new set of release assets."
           else
-            prerelease_args=()
-            if [ "$RELEASE_IS_PRERELEASE" = "true" ]; then
-              prerelease_args+=(--prerelease)
-            fi
             gh release create "$RELEASE_TAG" \
               release-assets/* \
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TAG" \
-              --notes-file release-notes.md \
-              "${prerelease_args[@]}"
+              --notes "Release notes and downloads: https://browso.org/releases.html#${RELEASE_TAG}"
           fi
 
+      - name: Publish release metadata to website
+        env:
+          WEBSITE_DISPATCH_TOKEN: ${{ secrets.WEBSITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$WEBSITE_DISPATCH_TOKEN" ]; then
+            echo "WEBSITE_DISPATCH_TOKEN is not configured."
+            exit 1
+          fi
+
+          jq -n \
+            --slurpfile plan release-plan/release-plan.json \
+            --arg published_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg commit "$GITHUB_SHA" \
+            '{
+              event_type: "browso-release-published",
+              client_payload: {
+                repository: "browso/browso",
+                release: {
+                  version: $plan[0].version,
+                  tag: $plan[0].tag,
+                  type: $plan[0].releaseType,
+                  publishedAt: $published_at,
+                  commit: $commit,
+                  notes: $plan[0].notes,
+                  releaseUrl: ("https://github.com/browso/browso/releases/tag/" + $plan[0].tag),
+                  assets: {
+                    macAppleSilicon: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/browso-mac-apple-silicon.dmg"),
+                    macIntel: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/browso-mac-mac-intel.dmg"),
+                    windows: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/browso-win-x64.exe"),
+                    linux: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/browso-linux-x86-64.AppImage"),
+                    checksums: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/SHA256SUMS.txt")
+                  }
+                }
+              }
+            }' |
+            curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Accept: application/vnd.github+json" \
+              --header "Content-Type: application/json" \
+              --header "Authorization: Bearer $WEBSITE_DISPATCH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/Browso/browso.github.io/dispatches \
+              --data-binary @-
+
   benchmarks:
-    name: 6. Final Benchmarks
+    name: 7. Final Benchmarks
     if: >-
       always() &&
       needs.quality.result == 'success' &&
       needs.bootstrap.result == 'success' &&
       needs.testing.result == 'success' &&
+      needs.release_plan.result == 'success' &&
       (needs.package.result == 'success' || needs.package.result == 'skipped') &&
       (needs.publish_release.result == 'success' || needs.publish_release.result == 'skipped')
     needs:
       - quality
       - bootstrap
       - testing
+      - release_plan
       - package
       - publish_release
     runs-on: ubuntu-latest
@@ -459,6 +546,7 @@ jobs:
         env:
           BROWSO_SHA: ${{ github.sha }}
           BROWSO_REF: ${{ github.ref }}
+          BROWSO_VERSION: ${{ needs.release_plan.outputs.version }}
           BROWSO_WORKFLOW_RUN_ID: ${{ github.run_id }}
           BROWSO_WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: npm run benchmark

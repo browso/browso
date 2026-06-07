@@ -1,7 +1,7 @@
 # Browso
 
 [![Build, Test, Release](https://github.com/browso/browso/actions/workflows/ci-release.yml/badge.svg)](https://github.com/browso/actions/workflows/ci-release.yml)
-[![Latest Release](https://img.shields.io/github/v/release/Browso/browso?include_prereleases)](https://github.com/Browso/browso/releases)
+[![Latest Release](https://img.shields.io/github/v/release/Browso/browso)](https://github.com/Browso/browso/releases)
 
 Browso is a desktop AI browser that combines a page-aware copilot, constrained
 browser automation, multi-tab research, and local knowledge in one application.
@@ -136,17 +136,22 @@ boundaries.
 
 ## CI And Releases
 
-The [Build, Test, Release workflow](.github/workflows/ci-release.yml) exposes
-four ordered jobs:
+The [Build, Test, Release workflow](.github/workflows/ci-release.yml) runs:
 
-1. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
-2. **Testing** runs TypeScript checks and the automated test suite.
-3. **Release Build** packages native DMGs on Apple Silicon and Intel runners.
-4. **Publish Release** creates or updates the versioned GitHub release and
-   uploads platform-specific auto-update metadata.
+1. **Code Quality** checks linting and formatting.
+2. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
+3. **Testing** runs type checks, tests, coverage, and uploads Cobertura results.
+4. **Release Planning** inspects the commit for `[release: minor]` or
+   `[release: major]`.
+5. **Release Build** packages macOS, Windows, and Linux downloads when requested.
+6. **Publish Release** creates an immutable stable GitHub release and updates
+   the website release catalog.
+7. **Benchmarks** publishes the latest performance result to the website.
 
-Pull requests run build and tests only. Pushes to `main`, plus manual workflow
-runs from `main`, package and publish both macOS architectures.
+Normal commits and pull requests validate the project and publish benchmarks
+without creating a release. A marked commit on `main` publishes the next stable
+minor or major version, then updates the website with release notes and direct
+platform downloads.
 
 See [Build And Release](docs/build-and-release.md) for runner labels, release
 behavior, and signing limitations.
@@ -183,7 +188,7 @@ and automation boundaries.
 
 - browser automation currently runs in Browso's live tabs, not Playwright
 - saved-page retrieval is lexical and local, not vector-based
-- Windows and Linux packages are not published yet
+- stable releases publish macOS, Windows, and Linux packages
 - cloud synchronization is not implemented
 
 These are explicit extension points rather than undocumented promises.

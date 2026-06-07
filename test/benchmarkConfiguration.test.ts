@@ -27,6 +27,7 @@ test("CI runs benchmarks only after validation and release jobs finish", () => {
     "quality",
     "bootstrap",
     "testing",
+    "release_plan",
     "package",
     "publish_release",
   ]) {

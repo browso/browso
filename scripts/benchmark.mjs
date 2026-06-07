@@ -262,12 +262,14 @@ async function main() {
     (await run("git", ["rev-parse", "HEAD"], options.source, {
       capture: true,
     }));
-  const packageVersion = await run(
-    "node",
-    ["-p", "require('./package.json').version"],
-    options.source,
-    { capture: true },
-  );
+  const packageVersion =
+    process.env.BROWSO_VERSION ||
+    (await run(
+      "node",
+      ["-p", "require('./package.json').version"],
+      options.source,
+      { capture: true },
+    ));
 
   const metrics = {
     lint: await benchmark(

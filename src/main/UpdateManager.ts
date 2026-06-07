@@ -190,7 +190,7 @@ export class UpdateManager {
   private configureUpdater(): void {
     this.updater.autoDownload = false;
     this.updater.autoInstallOnAppQuit = true;
-    this.updater.allowPrerelease = this.state.currentVersion.includes("-");
+    this.updater.allowPrerelease = false;
     this.updater.channel = this.getUpdateChannel();
     this.updater.allowDowngrade = false;
     this.updater.logger = {

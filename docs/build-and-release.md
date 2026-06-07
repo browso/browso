@@ -8,9 +8,18 @@ The desktop release pipeline is defined in:
 .github/workflows/ci-release.yml
 ```
 
-GitHub Actions displays four ordered jobs.
+GitHub Actions displays seven ordered stages: code quality, bootstrap and
+build, testing with coverage, release planning, optional native packaging,
+optional release publication, and benchmarks.
 
-## 1. Bootstrap And Build
+## 1. Code Quality
+
+Runner: `ubuntu-latest`
+
+This stage installs the locked dependency tree, runs ESLint, and verifies
+Prettier formatting.
+
+## 2. Bootstrap And Build
 
 Runner: `ubuntu-latest`
 
@@ -24,7 +33,7 @@ Steps:
 This stage catches dependency, type-checking, and bundling failures before test
 or release runners are allocated.
 
-## 2. Testing
+## 3. Testing
 
 Runner: `ubuntu-latest`
 
@@ -32,10 +41,40 @@ This job starts only after bootstrap succeeds. It runs:
 
 ```bash
 npm run typecheck
-npm run test:smoke
+npm run test:coverage
 ```
 
-## 3. Release Builds
+The Cobertura report is uploaded to GitHub Code Quality and retained as a
+workflow artifact.
+
+## 4. Release Planning
+
+Every push to `main` runs quality checks, the application build, tests,
+coverage, and benchmarks. Packaging and release publication happen only when
+the newest commit subject contains one of these exact markers:
+
+```text
+[release: minor]
+[release: major]
+```
+
+The plain phrases `minor version` and `major version` are also accepted, but
+the bracketed markers are recommended because they are unambiguous.
+
+Examples:
+
+```text
+Add workspace profiles [release: minor]
+Redesign the storage format [release: major]
+```
+
+`[release: minor]` increments `X.Y.0` to `X.(Y+1).0`.
+`[release: major]` increments `X.Y.0` to `(X+1).0.0`.
+Patch and prerelease versions are not published by this workflow. A commit
+without a release marker still runs benchmarks but does not allocate native
+packaging runners or create a GitHub release.
+
+## 5. Release Builds
 
 The release matrix starts only after testing succeeds.
 
@@ -103,18 +142,18 @@ linux-x64-linux.yml
 *.blockmap
 ```
 
-## 4. Versioned Release
+## 6. Versioned Release
 
 The publish job downloads all platform artifacts, creates `SHA256SUMS.txt`, and
-publishes a GitHub release whose tag matches the version in `package.json`.
-Existing releases are never deleted. Rerunning the workflow for the same
-version replaces that release's artifacts.
+publishes an immutable stable GitHub release using the version calculated from
+the latest stable tag. The package version is applied only inside release
+runners, so developers do not manually edit `package.json` for each release.
+Existing releases are never deleted or overwritten.
 
-Before shipping an update, increment the version:
-
-```bash
-npm version 1.0.0-beta.2 --no-git-tag-version
-```
+After publication, CI sends structured release metadata to
+`Browso/browso.github.io`. The website stores the complete release history,
+release notes, and direct platform download links. GitHub release notes contain
+only a link to the corresponding website release entry.
 
 An installed application compares that semantic version with its current
 version. It downloads the matching architecture channel, prompts the user, and
@@ -123,12 +162,14 @@ Electron user-data directory.
 
 ## Triggers
 
-| Event                               | Build | Test | Package | Publish |
-| ----------------------------------- | ----- | ---- | ------- | ------- |
-| Pull request                        | yes   | yes  | no      | no      |
-| Push to `main`                      | yes   | yes  | yes     | yes     |
-| Manual dispatch from `main`         | yes   | yes  | yes     | yes     |
-| Manual dispatch from another branch | yes   | yes  | no      | no      |
+| Event                                    | Build | Test | Package | Publish | Benchmark |
+| ---------------------------------------- | ----- | ---- | ------- | ------- | --------- |
+| Pull request                             | yes   | yes  | no      | no      | yes       |
+| Push to `main` without a release marker  | yes   | yes  | no      | no      | yes       |
+| Push to `main` with a release marker     | yes   | yes  | yes     | yes     | yes       |
+| Manual dispatch from `main`, type `none` | yes   | yes  | no      | no      | yes       |
+| Manual dispatch from `main`, major/minor | yes   | yes  | yes     | yes     | yes       |
+| Manual dispatch from another branch      | yes   | yes  | no      | no      | yes       |
 
 Concurrency cancellation prevents an older run on the same branch from
 publishing after a newer commit.
@@ -143,16 +184,17 @@ permissions:
   contents: write
 ```
 
-It uses the repository-provided `GITHUB_TOKEN`; no personal access token is
-required.
+It uses the repository-provided `GITHUB_TOKEN` to create the GitHub release.
+The website dispatch separately uses the `WEBSITE_DISPATCH_TOKEN` secret.
 
 Repository Actions settings must allow workflows to create releases with
 `GITHUB_TOKEN`.
 
-Versioned releases are treated as immutable. If a workflow reruns while the
-same `package.json` version already has a GitHub release, publication leaves the
-existing assets unchanged and continues to the benchmark job. Increment the
-package version before publishing different application binaries.
+Versioned releases are treated as immutable. If a workflow reruns after that
+tag already has a GitHub release, publication leaves the existing assets
+unchanged and continues to website synchronization and benchmarks. Future
+versions are calculated from the latest stable tag; do not edit
+`package.json` to choose the next release number.
 
 ## Local Commands
 
