@@ -53,7 +53,7 @@ Browso has built-in security layers:
 3. **Automation Boundaries**: User-controlled approval is required for consequential actions
 4. **API Key Isolation**: Provider keys are isolated in the backend and never exposed to renderers or remote pages
 
-For details, see [Safety And Privacy](docs/safety-and-privacy.md).
+For details, see [Safety And Privacy](https://browso.org/docs/safety-and-privacy.html).
 
 ## Security Best Practices When Using Browso
 
@@ -93,6 +93,6 @@ The following are out of scope for this security policy:
 
 ## Additional Resources
 
-- [Safety And Privacy](docs/safety-and-privacy.md) — comprehensive data-flow design
-- [Architecture](docs/architecture.md) — system design and threat model
-- [Backend](docs/backend.md) — trusted application boundary details
+- [Safety And Privacy](https://browso.org/docs/safety-and-privacy.html) — comprehensive data-flow design
+- [Architecture](https://browso.org/docs/architecture.html) — system design and threat model
+- [Backend](https://browso.org/docs/backend.html) — trusted application boundary details

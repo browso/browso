@@ -65,7 +65,8 @@ Browso desktop backend
 The Browso desktop backend is the trusted application boundary. Remote pages
 cannot access application services or provider keys.
 
-See [Architecture](docs/architecture.md) and [Backend](docs/backend.md) for the
+See [Architecture](https://browso.org/docs/architecture.html) and
+[Backend](https://browso.org/docs/backend.html) for the
 full runtime and data-flow design.
 
 ## Model Providers
@@ -131,7 +132,7 @@ npm run build
 The automated suite contains 673 named unit and contract tests covering routing
 helpers, conversation compaction, mode definitions, safety decisions, local
 retrieval, IPC contracts, update state, and browser-window handling. See the
-[Testing Guide](docs/testing.md) for the coverage inventory and integration
+[Testing Guide](https://browso.org/docs/testing.html) for the coverage inventory and integration
 boundaries.
 
 ## CI And Releases
@@ -153,7 +154,7 @@ without creating a release. A marked commit on `main` publishes the next stable
 minor or major version, then updates the website with release notes and direct
 platform downloads.
 
-See [Build And Release](docs/build-and-release.md) for runner labels, release
+See [Build And Release](https://browso.org/docs/build-and-release.html) for runner labels, release
 behavior, and signing limitations.
 
 ## Safety And Privacy
@@ -169,20 +170,20 @@ behavior, and signing limitations.
 When OpenAI or Anthropic is selected, page context can leave the device. Use
 Ollama for private or local-only browsing workflows.
 
-Read [Safety And Privacy](docs/safety-and-privacy.md) for the complete data-flow
+Read [Safety And Privacy](https://browso.org/docs/safety-and-privacy.html) for the complete data-flow
 and automation boundaries.
 
 ## Documentation
 
-- [Documentation Index](docs/README.md)
-- [Architecture](docs/architecture.md)
-- [Backend](docs/backend.md)
-- [Agent Modes And Automation](docs/agent.md)
-- [Settings, Memory, And Knowledge](docs/settings-and-memory.md)
-- [Safety And Privacy](docs/safety-and-privacy.md)
-- [Commands](docs/commands.md)
-- [Testing](docs/testing.md)
-- [Build And Release](docs/build-and-release.md)
+- [Documentation Index](https://browso.org/docs/)
+- [Architecture](https://browso.org/docs/architecture.html)
+- [Backend](https://browso.org/docs/backend.html)
+- [Agent Modes And Automation](https://browso.org/docs/agent.html)
+- [Settings, Memory, And Knowledge](https://browso.org/docs/settings-and-memory.html)
+- [Safety And Privacy](https://browso.org/docs/safety-and-privacy.html)
+- [Commands](https://browso.org/docs/commands.html)
+- [Testing](https://browso.org/docs/testing.html)
+- [Build And Release](https://browso.org/docs/build-and-release.html)
 
 ## Current Boundaries
 
