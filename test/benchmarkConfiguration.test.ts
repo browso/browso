@@ -34,6 +34,11 @@ test("CI runs benchmarks only after validation and release jobs finish", () => {
   }
   assert.match(benchmarkJob, /needs\.testing\.result == 'success'/);
   assert.match(benchmarkJob, /needs\.publish_release\.result == 'success'/);
+  assert.doesNotMatch(workflow, /BENCHMARKS_DISPATCH_TOKEN/);
+  assert.doesNotMatch(workflow, /Browso\/benchmarks/);
+  assert.match(workflow, /WEBSITE_DISPATCH_TOKEN/);
+  assert.match(workflow, /Browso\/browso\.github\.io\/dispatches/);
+  assert.match(workflow, /browso-benchmarks-updated/);
 });
 
 test("benchmark runner records quality, compilation, test, and size metrics", () => {

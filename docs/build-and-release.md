@@ -82,7 +82,14 @@ automated tests pass. On release runs it also waits for every platform package
 and the GitHub release to complete. Its JSON artifact records uncached linting,
 format verification, separate Node and renderer typechecks, tests, production
 bundling, bundle and source breakdowns, largest generated files, and dependency
-counts.
+counts. The benchmark runs entirely in this repository and requires no personal
+access token. Download `benchmarks-<commit>` from the completed Actions run to
+inspect `browso.json`. Publishing the completed result to the Browso website
+uses the `WEBSITE_DISPATCH_TOKEN` Actions secret. It must be a fine-grained
+personal access token restricted to `Browso/browso.github.io` with
+`Contents: Read and write`. The website repository must also allow GitHub
+Actions to use read and write workflow permissions so its receiver workflow can
+commit the updated benchmark history.
 
 Each package artifact also contains the updater payload and metadata consumed by
 `electron-updater`:
