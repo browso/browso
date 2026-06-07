@@ -142,17 +142,19 @@ The [Build, Test, Release workflow](.github/workflows/ci-release.yml) runs:
 1. **Code Quality** checks linting and formatting.
 2. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
 3. **Testing** runs type checks, tests, coverage, and uploads Cobertura results.
-4. **Release Planning** inspects the commit for `[release: minor]` or
-   `[release: major]`.
+4. **Release Planning** defaults every push to `main` to a minor release and
+   lets `[release: major]` override it for substantial or breaking changes.
 5. **Release Build** packages macOS, Windows, and Linux downloads when requested.
 6. **Publish Release** creates an immutable stable GitHub release and updates
    the website release catalog.
 7. **Benchmarks** publishes the latest performance result to the website.
 
-Normal commits and pull requests validate the project and publish benchmarks
-without creating a release. A marked commit on `main` publishes the next stable
-minor or major version, then updates the website with release notes and direct
-platform downloads.
+Pull requests validate the project without creating a release. Every commit
+merged or pushed to `main` publishes the next stable minor version, such as
+`v1.1.0`, `v1.2.0`, and `v1.3.0`. Add `[release: major]` to the commit message
+for a major version such as `v2.0.0`. The phrases `minor update` and
+`major update` are also recognized. A manual workflow run can select `none`,
+`minor`, or `major`.
 
 See [Build And Release](https://browso.org/docs/build-and-release.html) for runner labels, release
 behavior, and signing limitations.

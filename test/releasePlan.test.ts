@@ -12,10 +12,25 @@ test("release markers are explicit and case insensitive", () => {
   assert.equal(parseReleaseType("new architecture [RELEASE: MAJOR]"), "major");
   assert.equal(parseReleaseType("ship the minor version"), "minor");
   assert.equal(parseReleaseType("prepare major version"), "major");
+  assert.equal(parseReleaseType("minor update: improve tabs"), "minor");
+  assert.equal(parseReleaseType("major update: replace storage"), "major");
   assert.equal(parseReleaseType("ordinary fix"), null);
   assert.throws(
     () => parseReleaseType("[release: minor] [release: major]"),
     /cannot request both/,
+  );
+});
+
+test("main branch commits default to minor while major markers override", () => {
+  assert.equal(parseReleaseType("ordinary fix", "minor"), "minor");
+  assert.equal(
+    parseReleaseType("new architecture [release: major]", "minor"),
+    "major",
+  );
+  assert.equal(parseReleaseType("manual validation"), null);
+  assert.throws(
+    () => parseReleaseType("ordinary fix", "patch"),
+    /Unsupported default release type/,
   );
 });
 
@@ -45,6 +60,7 @@ test("website release notes omit release and merge bookkeeping", () => {
       "Improve tab recovery",
       "Merge pull request #12",
       "Ship it [release: minor]",
+      "minor update: release bookkeeping",
       "Fix updater metadata",
     ]),
     ["Improve tab recovery", "Fix updater metadata"],

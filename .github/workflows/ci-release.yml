@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: naviq-ci-release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   quality:
@@ -141,6 +141,7 @@ jobs:
       - name: Resolve stable release plan
         id: plan
         env:
+          DEFAULT_RELEASE_TYPE: ${{ github.event_name == 'push' && 'minor' || 'none' }}
           RELEASE_COMMIT_MESSAGE: >-
             ${{ github.event_name == 'workflow_dispatch' &&
             format('[release: {0}]', inputs.release_type) ||

@@ -7,11 +7,11 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 const RELEASE_MARKERS = {
-  major: /(?:\[release:\s*major\]|\bmajor version\b)/i,
-  minor: /(?:\[release:\s*minor\]|\bminor version\b)/i,
+  major: /(?:\[release:\s*major\]|\bmajor (?:version|update)\b)/i,
+  minor: /(?:\[release:\s*minor\]|\bminor (?:version|update)\b)/i,
 };
 
-export function parseReleaseType(message) {
+export function parseReleaseType(message, defaultType = null) {
   const matches = Object.entries(RELEASE_MARKERS)
     .filter(([, pattern]) => pattern.test(message))
     .map(([type]) => type);
@@ -20,7 +20,11 @@ export function parseReleaseType(message) {
     throw new Error("A commit cannot request both a major and minor release.");
   }
 
-  return matches[0] ?? null;
+  if (defaultType !== null && !Object.hasOwn(RELEASE_MARKERS, defaultType)) {
+    throw new Error(`Unsupported default release type: ${defaultType}`);
+  }
+
+  return matches[0] ?? defaultType;
 }
 
 export function normalizeStableVersion(version) {
@@ -58,7 +62,7 @@ export function releaseNotesFromSubjects(subjects) {
     .filter((subject) => !/^merge\b/i.test(subject))
     .filter(
       (subject) =>
-        !/(?:\[release:\s*(?:major|minor)\]|\b(?:major|minor) version\b)/i.test(
+        !/(?:\[release:\s*(?:major|minor)\]|\b(?:major|minor) (?:version|update)\b)/i.test(
           subject,
         ),
     );
@@ -93,7 +97,12 @@ function getLatestVersionTag() {
 function main() {
   const message =
     process.env.RELEASE_COMMIT_MESSAGE ?? git("log", "-1", "--pretty=%B");
-  const releaseType = parseReleaseType(message);
+  const defaultReleaseType =
+    process.env.DEFAULT_RELEASE_TYPE &&
+    process.env.DEFAULT_RELEASE_TYPE !== "none"
+      ? process.env.DEFAULT_RELEASE_TYPE
+      : null;
+  const releaseType = parseReleaseType(message, defaultReleaseType);
   const packageVersion = JSON.parse(
     readFileSync("package.json", "utf8"),
   ).version;
