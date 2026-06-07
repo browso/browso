@@ -39,6 +39,7 @@ test("CI runs benchmarks only after validation and release jobs finish", () => {
   assert.match(workflow, /WEBSITE_DISPATCH_TOKEN/);
   assert.match(workflow, /Browso\/browso\.github\.io\/dispatches/);
   assert.match(workflow, /browso-benchmarks-updated/);
+  assert.match(workflow, /repository: "browso\/browso"/);
 });
 
 test("benchmark runner records quality, compilation, test, and size metrics", () => {

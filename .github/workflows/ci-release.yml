@@ -467,7 +467,7 @@ jobs:
             '{
               event_type: "browso-benchmarks-updated",
               client_payload: {
-                repository: "Browso/browso",
+                repository: "browso/browso",
                 benchmark: $benchmark[0]
               }
             }' |
