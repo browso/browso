@@ -28,7 +28,7 @@
     "build:linux": "electron-vite build -c browso.vite.config.ts && electron-builder --linux AppImage --x64 -c browso-builder.yml --config.publish.channel=linux-x64"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.17",
+    "@ai-sdk/anthropic": "^3.0.81",
     "@ai-sdk/openai": "^2.0.30",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
