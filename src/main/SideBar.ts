@@ -1,5 +1,6 @@
 import { is } from "@electron-toolkit/utils";
 import { BaseWindow, WebContentsView } from "electron";
+import { randomUUID } from "node:crypto";
 import { join } from "path";
 import { LLMClient } from "./LLMClient";
 import { ComputerUseManager } from "./ComputerUseManager";
@@ -132,6 +133,19 @@ export class SideBar {
     } else {
       sendDraft();
     }
+  }
+
+  async openAndRun(message: string): Promise<void> {
+    const prompt = message.trim();
+    if (!prompt) {
+      return;
+    }
+
+    this.show();
+    await this.llmClient.sendChatMessage({
+      message: prompt,
+      messageId: randomUUID(),
+    });
   }
 
   hide(): void {

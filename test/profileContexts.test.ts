@@ -47,10 +47,17 @@ test("browser profiles use separate persistent sessions and tab sets", () => {
 
 test("welcome page can hand a search draft to the AI sidebar", () => {
   const tab = read("src/main/Tab.ts");
+  const window = read("src/main/Window.ts");
   const sidebar = read("src/main/SideBar.ts");
   const chat = read("src/renderer/sidebar/src/components/Chat.tsx");
 
   assert.match(tab, /BROWSO_AI_HASH_PREFIX/);
+  assert.match(tab, /BROWSO_AI_REQUEST_URL/);
+  assert.match(tab, /"will-navigate"/);
+  assert.match(tab, /event\.preventDefault\(\)/);
+  assert.match(window, /openAndRun\(message\)/);
+  assert.match(sidebar, /openAndRun\(message: string\)/);
+  assert.match(sidebar, /this\.llmClient\.sendChatMessage/);
   assert.match(sidebar, /openWithDraft\(message: string\)/);
   assert.match(sidebar, /"ai-draft-requested"/);
   assert.match(chat, /onAIDraftRequested/);

@@ -7,6 +7,7 @@ import {
   BROWSO_WELCOME_URL,
   buildWelcomePageHtml,
   isWelcomeUrl,
+  parseWelcomeAIRequest,
 } from "../src/main/WelcomePage.ts";
 
 const modeIds = [
@@ -231,7 +232,24 @@ for (const engine of ["google", "duckduckgo", "bing"] as const) {
     );
     assert.match(html, /if \(!aiMode\.checked\) return/);
     assert.match(html, /event\.preventDefault\(\)/);
-    assert.match(html, /#browso-ai=/);
+    assert.match(html, /action: "Summarize"/);
+    assert.match(html, /Concise overview and key points/);
+    assert.match(html, /action: "Explain"/);
+    assert.match(html, /action: "Research"/);
+    assert.match(html, /action: "Compare"/);
+    assert.match(html, /action: "Ask AI"/);
+    assert.match(html, /openAI\(item\.action, item\.query, item\.prompt\)/);
+    assert.match(html, /event\.key === "ArrowDown"/);
+    assert.match(html, /updateSelection\(0\)/);
+    assert.match(html, /button\.addEventListener\("mouseenter"/);
+    assert.match(html, /chooseSuggestion\(selectedSuggestion\)/);
+    assert.match(html, /Prompt sent to Browso AI/);
+    assert.match(html, /searchShell\.classList\.add\("submitted"\)/);
+    assert.match(html, /input\.disabled = true/);
+    assert.match(html, /location\.href = requestUrl/);
+    assert.match(html, /browso:\/\/ai-request/);
+    assert.match(html, /role="listbox"/);
+    assert.match(html, /browso:\/\/ai-request/);
     assert.match(html, /--foreground: #141414/);
     assert.match(html, /--secondary: #f5f5f5/);
     assert.doesNotMatch(html, /#155eef|#004eeb|#2e6cff|#477dff/i);
@@ -254,6 +272,26 @@ for (const engine of ["google", "duckduckgo", "bing"] as const) {
 for (const url of [BROWSO_WELCOME_URL, LEGACY_BLUEBERRY_WELCOME_URL]) {
   test(`isWelcomeUrl accepts compatible URL ${url}`, () => {
     assert.equal(isWelcomeUrl(url), true);
+  });
+}
+
+test("welcome AI request parser accepts the internal prompt route", () => {
+  assert.equal(
+    parseWelcomeAIRequest(
+      "browso://ai-request?action=Explain&prompt=Explain%20quantum%20computing",
+    ),
+    "Explain quantum computing",
+  );
+});
+
+for (const url of [
+  "https://example.com/?prompt=unsafe",
+  "browso://welcome?prompt=ignored",
+  "browso://ai-request",
+  "not a url",
+]) {
+  test(`welcome AI request parser rejects ${JSON.stringify(url)}`, () => {
+    assert.equal(parseWelcomeAIRequest(url), null);
   });
 }
 

@@ -2,9 +2,11 @@ import { NativeImage, WebContentsView, type WebContents } from "electron";
 import { AISettingsStore } from "./AISettings";
 import {
   BROWSO_AI_HASH_PREFIX,
+  BROWSO_AI_REQUEST_URL,
   BROWSO_WELCOME_URL,
   buildWelcomePageHtml,
   isWelcomeUrl,
+  parseWelcomeAIRequest,
 } from "./WelcomePage";
 
 export class Tab {
@@ -45,6 +47,18 @@ export class Tab {
   }
 
   private setupEventListeners(): void {
+    this.webContentsView.webContents.on("will-navigate", (event, url) => {
+      if (!url.startsWith(BROWSO_AI_REQUEST_URL)) {
+        return;
+      }
+
+      event.preventDefault();
+      const prompt = parseWelcomeAIRequest(url);
+      if (prompt) {
+        this.onAIRequest?.(prompt);
+      }
+    });
+
     // Update title when page title changes
     this.webContentsView.webContents.on("page-title-updated", (_, title) => {
       this._title = title;

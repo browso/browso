@@ -102,7 +102,7 @@ export class Window {
       url || AISettingsStore.getInstance().getSettings().homepage;
     const tabId = `tab-${++this.tabCounter}`;
     const tab = new Tab(tabId, this.activeProfileId, initialUrl, (message) => {
-      this._sideBar.openWithDraft(message);
+      void this._sideBar.openAndRun(message).catch(() => undefined);
       this.updateAllBounds();
     });
     attachExternalWindowOpenHandler(tab.webContents, shell.openExternal);
