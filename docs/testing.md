@@ -112,6 +112,26 @@ Run:
 npm run test:smoke
 ```
 
+## Code Coverage
+
+Generate the same coverage report used by CI:
+
+```bash
+npm run test:coverage
+```
+
+This runs the full Node test suite through `c8` and writes a Cobertura report
+to:
+
+```text
+coverage/cobertura-coverage.xml
+```
+
+The CI testing job uploads that report to GitHub Code Quality on pushes to
+`main` and on pull requests from this repository. It also retains the XML as a
+30-day workflow artifact. GitHub Code Quality must be enabled in the repository
+settings before pull-request coverage summaries can appear.
+
 The suite currently contains 673 named tests. It combines focused regression
 tests with generated input matrices so failures identify the exact case that
 changed.

@@ -31,5 +31,9 @@ test("release workflow publishes versioned updater artifacts", () => {
   assert.match(workflow, /mac-arm64-mac\.yml/);
   assert.match(workflow, /win-x64\.yml/);
   assert.match(workflow, /linux-x64-linux\.yml/);
+  assert.match(workflow, /Release \$RELEASE_TAG already exists/);
+  assert.doesNotMatch(workflow, /gh release upload/);
+  assert.doesNotMatch(workflow, /--clobber/);
+  assert.doesNotMatch(workflow, /gh release edit/);
   assert.doesNotMatch(workflow, /gh release delete/);
 });

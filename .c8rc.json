@@ -1,0 +1,7 @@
+{
+  "all": true,
+  "src": ["src/main", "src/preload"],
+  "include": ["src/main/**/*.ts", "src/preload/**/*.ts"],
+  "exclude": ["src/main/index.ts", "src/preload/*.ts", "src/**/*.d.ts"],
+  "excludeAfterRemap": true
+}

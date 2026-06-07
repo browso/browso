@@ -149,6 +149,11 @@ required.
 Repository Actions settings must allow workflows to create releases with
 `GITHUB_TOKEN`.
 
+Versioned releases are treated as immutable. If a workflow reruns while the
+same `package.json` version already has a GitHub release, publication leaves the
+existing assets unchanged and continues to the benchmark job. Increment the
+package version before publishing different application binaries.
+
 ## Local Commands
 
 Application build:

@@ -69,10 +69,15 @@ jobs:
     needs: bootstrap
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      code-quality: write
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -86,8 +91,25 @@ jobs:
       - name: Run type checks
         run: npm run typecheck
 
-      - name: Run automated tests
-        run: npm run test:smoke
+      - name: Run automated tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report to GitHub Code Quality
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage/cobertura-coverage.xml
+          language: JavaScript
+          label: code-coverage/node
+
+      - name: Upload coverage report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-${{ github.sha }}
+          path: coverage/cobertura-coverage.xml
+          if-no-files-found: error
+          retention-days: 30
 
   package:
     name: 4. Release Build - ${{ matrix.label }}
@@ -387,10 +409,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release-assets/* --clobber
-            gh release edit "$RELEASE_TAG" \
-              --title "$RELEASE_TAG" \
-              --notes-file release-notes.md
+            echo "Release $RELEASE_TAG already exists; leaving its immutable assets unchanged."
+            echo "Increment package.json version to publish a new set of release assets."
           else
             prerelease_args=()
             if [ "$RELEASE_IS_PRERELEASE" = "true" ]; then
