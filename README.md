@@ -165,6 +165,31 @@ for a major version such as `v2.0.0`. The phrases `minor update` and
 `major update` are also recognized. A manual workflow run can select `none`,
 `minor`, or `major`.
 
+Windows releases require a persistent code-signing certificate in two GitHub
+Actions repository secrets:
+
+- `WINDOWS_PFX_BASE64`: the base64-encoded contents of the `.pfx` file
+- `WINDOWS_PFX_PASSWORD`: the password used when exporting the `.pfx`
+
+Encode the PFX without line breaks on macOS or Linux:
+
+```bash
+base64 < codesign.pfx | tr -d '\n'
+```
+
+Or encode it from PowerShell on Windows:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx"))
+```
+
+The release job validates the certificate, requires Electron Builder to sign
+the Windows application and NSIS installer, and verifies both outputs before
+publishing. A self-signed certificate proves that releases use a stable key but
+does not remove Windows SmartScreen or unknown-publisher warnings for users. A
+trusted code-signing certificate, including one issued through an eligible
+open-source signing program, is required for normal Windows publisher trust.
+
 See [Build And Release](https://browso.org/docs/build-and-release.html) for runner labels, release
 behavior, and signing limitations.
 

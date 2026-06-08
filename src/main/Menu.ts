@@ -215,7 +215,8 @@ export class AppMenu {
             submenu: [
               {
                 label: "Show Full History",
-                click: () => this.handleAIRun("Show my recent browsing history"),
+                click: () =>
+                  this.handleAIRun("Show my recent browsing history"),
               },
               {
                 label: "Search History…",

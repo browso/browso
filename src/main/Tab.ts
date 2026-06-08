@@ -92,7 +92,11 @@ export class Tab {
   }
 
   private recordHistory(): void {
-    if (this._url && !this._url.startsWith("data:") && !isWelcomeUrl(this._url)) {
+    if (
+      this._url &&
+      !this._url.startsWith("data:") &&
+      !isWelcomeUrl(this._url)
+    ) {
       HistoryStore.getInstance().addEntry(this._url, this._title);
     }
   }

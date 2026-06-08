@@ -51,7 +51,11 @@ export class HistoryStore {
 
     // Prevent duplicate entries for the same URL if visited within the last 30 seconds
     const lastEntry = history[0];
-    if (lastEntry && lastEntry.url === url && now - lastEntry.visitedAt < 30000) {
+    if (
+      lastEntry &&
+      lastEntry.url === url &&
+      now - lastEntry.visitedAt < 30000
+    ) {
       lastEntry.title = title || lastEntry.title;
       lastEntry.visitedAt = now;
       this.persist();
@@ -66,7 +70,10 @@ export class HistoryStore {
       visitedAt: now,
     };
 
-    this.contexts[contextId] = [entry, ...history].slice(0, this.MAX_ENTRIES_PER_CONTEXT);
+    this.contexts[contextId] = [entry, ...history].slice(
+      0,
+      this.MAX_ENTRIES_PER_CONTEXT,
+    );
     this.persist();
   }
 
@@ -97,7 +104,9 @@ export class HistoryStore {
 
   private load(): Record<string, HistoryEntry[]> {
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as HistoryFile;
+      const parsed = JSON.parse(
+        readFileSync(this.filePath, "utf8"),
+      ) as HistoryFile;
       return parsed.version === 1 && parsed.contexts ? parsed.contexts : {};
     } catch {
       return {};
