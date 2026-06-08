@@ -2,8 +2,7 @@ import { tool, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { Tab } from "./Tab.ts";
 import type { WebContents } from "electron";
-import { AISettingsStore } from "./AISettings.ts";
-import { HistoryStore } from "./HistoryStore.ts";
+import type { AISettingsStore } from "./AISettings.ts";
 
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -888,6 +887,7 @@ export function buildShoppingTools(
             "History access is currently disabled by the user in Settings. Please ask the user to enable 'History Access' if they want me to search their past browsing activity.",
         };
       }
+      const { HistoryStore } = await import("./HistoryStore.ts");
       const results = HistoryStore.getInstance().search(query, limit);
       return {
         query,
