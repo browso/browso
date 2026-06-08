@@ -25,36 +25,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  codeql:
-    name: 1. CodeQL
+  security:
+    name: codeql / security
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      security-events: write
-      packages: read
-      actions: read
-      contents: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: actions
-          build-mode: none
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:actions"
-
-  codeql_advanced:
-    name: 2. CodeQL Advanced
-    needs: codeql
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       security-events: write
       packages: read
@@ -74,39 +48,19 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript
+          languages: actions,javascript-typescript
           build-mode: none
           queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:javascript-typescript"
-
-  dependabot_update:
-    name: 3. Dependabot Update
-    needs: codeql_advanced
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+          category: "/language:actions-javascript-typescript"
 
       - name: Validate Dependabot config
         shell: bash
         run: |
           ruby -e 'require "yaml"; YAML.load_file(".github/dependabot.yml"); puts "Dependabot config parsed successfully."'
-
-  pages_build_deploy:
-    name: 4. Pages Build Deployment
-    needs: dependabot_update
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
 
       - name: Dispatch pages build
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -139,8 +93,8 @@ jobs:
               --data-binary @-
 
   quality:
-    name: 5. Code Quality
-    needs: pages_build_deploy
+    name: quality
+    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -163,8 +117,8 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-  bootstrap:
-    name: 6. Bootstrap & Build
+  build:
+    name: build
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -188,9 +142,9 @@ jobs:
       - name: Build application
         run: npm run build
 
-  testing:
-    name: 7. Testing
-    needs: bootstrap
+  test:
+    name: test
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -236,8 +190,8 @@ jobs:
           retention-days: 30
 
   release_plan:
-    name: 8. Plan Release
-    needs: testing
+    name: release-plan
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -278,29 +232,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  package:
-    name: 9. Release Build - ${{ matrix.label }}
+  package_macos:
+    name: package-macos
     if: >-
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request' &&
       needs.release_plan.outputs.should_release == 'true'
     needs:
-      - testing
       - release_plan
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    permissions:
-      contents: read
-      attestations: write
-      id-token: write
     strategy:
       fail-fast: false
-      max-parallel: 4
       matrix:
         include:
           - label: Apple Silicon
             runner: macos-15
-            platform: mac
             arch: arm64
             artifact: macos-arm64
             asset: browso-mac-apple-silicon.dmg
@@ -308,28 +255,11 @@ jobs:
             channel: mac-arm64
           - label: Intel
             runner: macos-15-intel
-            platform: mac
             arch: x64
             artifact: macos-x64
             asset: browso-mac-mac-intel.dmg
             pattern: "*.dmg"
             channel: mac-x64
-          - label: Windows x64
-            runner: windows-latest
-            platform: win
-            arch: x64
-            artifact: windows-x64
-            asset: browso-win-x64.exe
-            pattern: "*.exe"
-            channel: win-x64
-          - label: Linux x64
-            runner: ubuntu-latest
-            platform: linux
-            arch: x64
-            artifact: linux-x64
-            asset: browso-linux-x86-64.AppImage
-            pattern: "*.AppImage"
-            channel: linux-x64
 
     steps:
       - name: Check out repository
@@ -348,7 +278,6 @@ jobs:
         run: npm ci
 
       - name: Configure Apple signing and notarization
-        if: matrix.platform == 'mac'
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -393,8 +322,121 @@ jobs:
             echo "MACOS_SIGNING_ENABLED=true"
           } >> "$GITHUB_ENV"
 
+      - name: Disable Spotlight indexing
+        run: sudo mdutil -a -i off
+
+      - name: Build application
+        run: npm run build
+
+      - name: Sign, notarize, and package macOS DMG
+        if: env.MACOS_SIGNING_ENABLED == 'true'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: >
+            npx electron-builder
+            --mac dmg zip
+            --${{ matrix.arch }}
+            -c browso-builder.yml
+            --publish never
+            --config.publish.channel=${{ matrix.channel }}
+            --config.forceCodeSigning=true
+            --config.directories.output=release/${{ matrix.arch }}
+
+      - name: Package ad-hoc signed macOS DMG
+        if: env.MACOS_SIGNING_ENABLED != 'true'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: >
+            npx electron-builder
+            --mac dmg zip
+            --${{ matrix.arch }}
+            -c browso-builder.yml
+            --publish never
+            --config.publish.channel=${{ matrix.channel }}
+            --config.mac.identity=-
+            --config.mac.hardenedRuntime=false
+            --config.mac.notarize=false
+            --config.directories.output=release/${{ matrix.arch }}
+
+      - name: Test packaged macOS application
+        shell: bash
+        run: |
+          executable="$(find "release/${{ matrix.arch }}" -type f -path '*/Browso.app/Contents/MacOS/Browso' -print -quit)"
+          if [ -z "$executable" ]; then
+            echo "The packaged macOS executable was not found."
+            exit 1
+          fi
+          "$executable" --smoke-test
+
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find "release/${{ matrix.arch }}" -maxdepth 1 -type f \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*.yml' -o -name '*.blockmap' \) \
+            -exec cp {} release-assets/ \;
+          package_path="$(find "release/${{ matrix.arch }}" -type f -name '${{ matrix.pattern }}' -print -quit)"
+          if [ -z "$package_path" ]; then
+            echo "No ${{ matrix.pattern }} package was produced."
+            exit 1
+          fi
+          cp "$package_path" "release-assets/${{ matrix.asset }}"
+
+      - name: Verify Gatekeeper acceptance
+        if: env.MACOS_SIGNING_ENABLED == 'true'
+        run: >
+          bash scripts/verify-macos-release.sh
+          "release-assets/${{ matrix.asset }}"
+          "$APPLE_TEAM_ID"
+
+      - name: Verify ad-hoc macOS signature
+        if: env.MACOS_SIGNING_ENABLED != 'true'
+        run: >
+          bash scripts/verify-macos-adhoc-release.sh
+          "release-assets/${{ matrix.asset }}"
+
+      - name: Upload packaged application
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.artifact }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
+  package_windows:
+    name: package-windows
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.release_plan.outputs.should_release == 'true'
+    needs:
+      - release_plan
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply release version
+        run: npm version "${{ needs.release_plan.outputs.version }}" --no-git-tag-version
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Configure Windows signing
-        if: matrix.platform == 'win'
         shell: pwsh
         env:
           WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
@@ -443,88 +485,26 @@ jobs:
           Add-Content -Path $env:GITHUB_ENV -Value "WIN_CSC_KEY_PASSWORD=$env:WINDOWS_PFX_PASSWORD"
           Add-Content -Path $env:GITHUB_ENV -Value "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)"
 
-      - name: Disable Spotlight indexing
-        if: matrix.platform == 'mac'
-        run: sudo mdutil -a -i off
-
       - name: Build application
         run: npm run build
 
-      - name: Sign, notarize, and package macOS DMG
-        if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED == 'true'
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 15
-          max_attempts: 3
-          command: >
-            npx electron-builder
-            --mac dmg zip
-            --${{ matrix.arch }}
-            -c browso-builder.yml
-            --publish never
-            --config.publish.channel=${{ matrix.channel }}
-            --config.forceCodeSigning=true
-            --config.directories.output=release/${{ matrix.arch }}
-
-      - name: Package ad-hoc signed macOS DMG
-        if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 15
-          max_attempts: 3
-          command: >
-            npx electron-builder
-            --mac dmg zip
-            --${{ matrix.arch }}
-            -c browso-builder.yml
-            --publish never
-            --config.publish.channel=${{ matrix.channel }}
-            --config.mac.identity=-
-            --config.mac.hardenedRuntime=false
-            --config.mac.notarize=false
-            --config.directories.output=release/${{ matrix.arch }}
-
       - name: Package Windows installer
-        if: matrix.platform == 'win'
         run: >
           npx electron-builder
           --win nsis
-          --${{ matrix.arch }}
+          --x64
           -c browso-builder.yml
           --publish never
-          --config.publish.channel=${{ matrix.channel }}
+          --config.publish.channel=win-x64
           --config.forceCodeSigning=true
           --config.win.signingHashAlgorithms=["sha256"]
-          --config.directories.output=release/${{ matrix.arch }}
-
-      - name: Package Linux AppImage
-        if: matrix.platform == 'linux'
-        run: >
-          npx electron-builder
-          --linux AppImage
-          --${{ matrix.arch }}
-          -c browso-builder.yml
-          --publish never
-          --config.publish.channel=${{ matrix.channel }}
-          --config.directories.output=release/${{ matrix.arch }}
-
-      - name: Test packaged macOS application
-        if: matrix.platform == 'mac'
-        shell: bash
-        run: |
-          executable="$(find "release/${{ matrix.arch }}" -type f -path '*/Browso.app/Contents/MacOS/Browso' -print -quit)"
-          if [ -z "$executable" ]; then
-            echo "The packaged macOS executable was not found."
-            exit 1
-          fi
-          "$executable" --smoke-test
+          --config.directories.output=release/x64
 
       - name: Test packaged Windows application
-        if: matrix.platform == 'win'
         shell: pwsh
         run: |
           $process = Start-Process `
-            -FilePath "release/${{ matrix.arch }}/win-unpacked/Browso.exe" `
+            -FilePath "release/x64/win-unpacked/Browso.exe" `
             -ArgumentList "--smoke-test" `
             -PassThru
           if (-not $process.WaitForExit(30000)) {
@@ -535,11 +515,84 @@ jobs:
             throw "Packaged Windows startup smoke test failed with exit code $($process.ExitCode)."
           }
 
-      - name: Test packaged Linux application
-        if: matrix.platform == 'linux'
+      - name: Prepare release asset
         shell: bash
         run: |
-          executable="$(find "release/${{ matrix.arch }}" -type f -path '*/linux-unpacked/Browso' -print -quit)"
+          mkdir -p release-assets
+          find release/x64 -maxdepth 1 -type f \
+            \( -name '*.exe' -o -name '*.yml' -o -name '*.blockmap' \) \
+            -exec cp {} release-assets/ \;
+          package_path="$(find release/x64 -type f -name '*.exe' -print -quit)"
+          if [ -z "$package_path" ]; then
+            echo "No Windows package was produced."
+            exit 1
+          fi
+          cp "$package_path" release-assets/browso-win-x64.exe
+
+      - name: Verify Windows signature
+        shell: pwsh
+        run: |
+          pwsh -File scripts/verify-windows-release.ps1 `
+            -FilePath "release-assets/browso-win-x64.exe" `
+            -ExpectedThumbprint "$env:WINDOWS_CERTIFICATE_THUMBPRINT"
+          pwsh -File scripts/verify-windows-release.ps1 `
+            -FilePath "release/x64/win-unpacked/Browso.exe" `
+            -ExpectedThumbprint "$env:WINDOWS_CERTIFICATE_THUMBPRINT"
+
+      - name: Upload packaged application
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-windows-x64
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
+  package_linux:
+    name: package-linux
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.release_plan.outputs.should_release == 'true'
+    needs:
+      - release_plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply release version
+        run: npm version "${{ needs.release_plan.outputs.version }}" --no-git-tag-version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Package Linux AppImage
+        run: >
+          npx electron-builder
+          --linux AppImage
+          --x64
+          -c browso-builder.yml
+          --publish never
+          --config.publish.channel=linux-x64
+          --config.directories.output=release/x64
+
+      - name: Test packaged Linux application
+        shell: bash
+        run: |
+          executable="$(find "release/x64" -type f -path '*/linux-unpacked/Browso' -print -quit)"
           if [ -z "$executable" ]; then
             echo "The packaged Linux executable was not found."
             exit 1
@@ -550,67 +603,67 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-assets
-          find "release/${{ matrix.arch }}" -maxdepth 1 -type f \
-            \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \
-               -o -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
+          find release/x64 -maxdepth 1 -type f \
+            \( -name '*.AppImage' -o -name '*.yml' -o -name '*.blockmap' \) \
             -exec cp {} release-assets/ \;
-          package_path="$(find "release/${{ matrix.arch }}" -type f -name '${{ matrix.pattern }}' -print -quit)"
+          package_path="$(find release/x64 -type f -name '*.AppImage' -print -quit)"
           if [ -z "$package_path" ]; then
-            echo "No ${{ matrix.pattern }} package was produced."
+            echo "No Linux package was produced."
             exit 1
           fi
-          cp "$package_path" "release-assets/${{ matrix.asset }}"
-
-      - name: Verify Gatekeeper acceptance
-        if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED == 'true'
-        run: >
-          bash scripts/verify-macos-release.sh
-          "release-assets/${{ matrix.asset }}"
-          "$APPLE_TEAM_ID"
-
-      - name: Verify Windows signature
-        if: matrix.platform == 'win'
-        shell: pwsh
-        run: |
-          pwsh -File scripts/verify-windows-release.ps1 `
-            -FilePath "release-assets/${{ matrix.asset }}" `
-            -ExpectedThumbprint "$env:WINDOWS_CERTIFICATE_THUMBPRINT"
-          pwsh -File scripts/verify-windows-release.ps1 `
-            -FilePath "release/${{ matrix.arch }}/win-unpacked/Browso.exe" `
-            -ExpectedThumbprint "$env:WINDOWS_CERTIFICATE_THUMBPRINT"
-
-      - name: Verify ad-hoc macOS signature
-        if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
-        run: >
-          bash scripts/verify-macos-adhoc-release.sh
-          "release-assets/${{ matrix.asset }}"
-
-      - name: Attest build provenance
-        if: >-
-          github.ref == 'refs/heads/main' &&
-          github.event_name != 'pull_request' &&
-          needs.release_plan.outputs.should_release == 'true'
-        uses: actions/attest-build-provenance@v4.1.0
-        with:
-          subject-path: release-assets/*
+          cp "$package_path" release-assets/browso-linux-x86-64.AppImage
 
       - name: Upload packaged application
         uses: actions/upload-artifact@v4
         with:
-          name: package-${{ matrix.artifact }}
+          name: package-linux-x64
           path: release-assets/*
           if-no-files-found: error
           retention-days: 7
 
-  publish_release:
-    name: 10. Publish Release
+  attest_build_provenance:
+    name: attest-build-provenance
     if: >-
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request' &&
       needs.release_plan.outputs.should_release == 'true'
     needs:
       - release_plan
-      - package
+      - package_macos
+      - package_windows
+      - package_linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4.1.0
+        with:
+          subject-path: release-assets/*
+
+  publish_release:
+    name: publish-release
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.release_plan.outputs.should_release == 'true'
+    needs:
+      - release_plan
+      - attest_build_provenance
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -713,21 +766,29 @@ jobs:
               --data-binary @-
 
   benchmarks:
-    name: 11. Final Benchmarks
+    name: benchmarks
     if: >-
       always() &&
+      needs.security.result == 'success' &&
       needs.quality.result == 'success' &&
-      needs.bootstrap.result == 'success' &&
-      needs.testing.result == 'success' &&
+      needs.build.result == 'success' &&
+      needs.test.result == 'success' &&
       needs.release_plan.result == 'success' &&
-      (needs.package.result == 'success' || needs.package.result == 'skipped') &&
+      (needs.package_macos.result == 'success' || needs.package_macos.result == 'skipped') &&
+      (needs.package_windows.result == 'success' || needs.package_windows.result == 'skipped') &&
+      (needs.package_linux.result == 'success' || needs.package_linux.result == 'skipped') &&
+      (needs.attest_build_provenance.result == 'success' || needs.attest_build_provenance.result == 'skipped') &&
       (needs.publish_release.result == 'success' || needs.publish_release.result == 'skipped')
     needs:
+      - security
       - quality
-      - bootstrap
-      - testing
+      - build
+      - test
       - release_plan
-      - package
+      - package_macos
+      - package_windows
+      - package_linux
+      - attest_build_provenance
       - publish_release
     runs-on: ubuntu-latest
     timeout-minutes: 20

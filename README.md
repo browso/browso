@@ -148,19 +148,22 @@ boundaries.
 
 The [browso-ci workflow](.github/workflows/ci-release.yml) runs:
 
-1. **CodeQL** scans GitHub Actions workflow files.
-2. **CodeQL Advanced** scans the JavaScript and TypeScript source.
-3. **Dependabot Update** validates the dependency automation configuration.
-4. **Pages Build Deployment** dispatches the website build trigger on `main`.
-5. **Code Quality** checks linting and formatting.
-6. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
-7. **Testing** runs type checks, tests, coverage, and uploads Cobertura results.
-8. **Release Planning** defaults every push to `main` to a minor release and
+1. **Security / CodeQL** scans workflow files and JavaScript/TypeScript source,
+   validates the Dependabot config, and dispatches the website build trigger on
+   `main`.
+2. **Quality** checks linting and formatting.
+3. **Build** installs from `package-lock.json` and builds the app.
+4. **Test** runs type checks, tests, coverage, and uploads Cobertura results.
+5. **Release Planning** defaults every push to `main` to a minor release and
    lets `[release: major]` override it for substantial or breaking changes.
-9. **Release Build** packages macOS, Windows, and Linux downloads when requested.
-10. **Publish Release** creates an immutable stable GitHub release and updates
+6. **package-macos** builds the Apple Silicon and Intel macOS downloads.
+7. **package-windows** builds the signed Windows installer.
+8. **package-linux** builds the Linux AppImage.
+9. **attest-build-provenance** records build provenance for the release
+   artifacts.
+10. **publish-release** creates an immutable stable GitHub release and updates
     the website release catalog.
-11. **Benchmarks** publishes the latest performance result to the website.
+11. **benchmarks** publishes the latest performance result to the website.
 
 Release artifacts are also published with GitHub build provenance attestations.
 Those attestations tie each binary back to the `browso-ci` workflow, this

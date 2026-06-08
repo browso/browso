@@ -24,17 +24,40 @@ test("CI runs benchmarks only after validation and release jobs finish", () => {
   assert.match(workflow, /path: benchmark-results\/browso\.json/);
   assert.match(workflow, /retention-days: 30/);
   for (const dependency of [
+    "security",
     "quality",
-    "bootstrap",
-    "testing",
+    "build",
+    "test",
     "release_plan",
-    "package",
+    "package_macos",
+    "package_windows",
+    "package_linux",
+    "attest_build_provenance",
     "publish_release",
   ]) {
     assert.match(benchmarkJob, new RegExp(`- ${dependency}`), dependency);
   }
-  assert.match(benchmarkJob, /needs\.testing\.result == 'success'/);
-  assert.match(benchmarkJob, /needs\.publish_release\.result == 'success'/);
+  assert.match(benchmarkJob, /needs\.security\.result == 'success'/);
+  assert.match(
+    benchmarkJob,
+    /needs\.package_macos\.result == 'success' \|\| needs\.package_macos\.result == 'skipped'/,
+  );
+  assert.match(
+    benchmarkJob,
+    /needs\.package_windows\.result == 'success' \|\| needs\.package_windows\.result == 'skipped'/,
+  );
+  assert.match(
+    benchmarkJob,
+    /needs\.package_linux\.result == 'success' \|\| needs\.package_linux\.result == 'skipped'/,
+  );
+  assert.match(
+    benchmarkJob,
+    /needs\.attest_build_provenance\.result == 'success' \|\| needs\.attest_build_provenance\.result == 'skipped'/,
+  );
+  assert.match(
+    benchmarkJob,
+    /needs\.publish_release\.result == 'success' \|\| needs\.publish_release\.result == 'skipped'/,
+  );
   assert.doesNotMatch(workflow, /BENCHMARKS_DISPATCH_TOKEN/);
   assert.doesNotMatch(workflow, /Browso\/benchmarks/);
   assert.match(workflow, /WEBSITE_DISPATCH_TOKEN/);

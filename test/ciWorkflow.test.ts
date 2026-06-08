@@ -10,15 +10,15 @@ test("browso-ci keeps the requested stage order", () => {
   assert.match(workflow, /^name: browso-ci$/m);
 
   const stages = [
-    "codeql",
-    "codeql_advanced",
-    "dependabot_update",
-    "pages_build_deploy",
+    "security",
     "quality",
-    "bootstrap",
-    "testing",
+    "build",
+    "test",
     "release_plan",
-    "package",
+    "package_macos",
+    "package_windows",
+    "package_linux",
+    "attest_build_provenance",
     "publish_release",
     "benchmarks",
   ];
