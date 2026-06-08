@@ -34,7 +34,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@radix-ui/react-slot": "^1.2.3",
     "ai": "^5.0.44",
-    "ai-sdk-ollama": "^0.5.2",
+    "ai-sdk-ollama": "^3.8.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.2",
