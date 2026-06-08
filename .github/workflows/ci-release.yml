@@ -443,7 +443,9 @@ jobs:
           WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
         run: |
           if (-not $env:WINDOWS_PFX_BASE64 -or -not $env:WINDOWS_PFX_PASSWORD) {
-            throw "Windows releases require WINDOWS_PFX_BASE64 and WINDOWS_PFX_PASSWORD repository secrets."
+            Write-Warning "WINDOWS_PFX_BASE64 and WINDOWS_PFX_PASSWORD are not configured. Continuing with an unsigned Windows build."
+            Add-Content -Path $env:GITHUB_ENV -Value "WINDOWS_SIGNING_ENABLED=false"
+            exit 0
           }
 
           $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
@@ -481,6 +483,7 @@ jobs:
           Write-Host "Using Windows signing certificate: $($certificate.Subject)"
           Write-Host "Certificate expires: $($certificate.NotAfter.ToString('u'))"
 
+          Add-Content -Path $env:GITHUB_ENV -Value "WINDOWS_SIGNING_ENABLED=true"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN_CSC_LINK=$pfxPath"
           Add-Content -Path $env:GITHUB_ENV -Value "WIN_CSC_KEY_PASSWORD=$env:WINDOWS_PFX_PASSWORD"
           Add-Content -Path $env:GITHUB_ENV -Value "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)"
@@ -489,16 +492,28 @@ jobs:
         run: npm run build
 
       - name: Package Windows installer
-        run: >
-          npx electron-builder
-          --win nsis
-          --x64
-          -c browso-builder.yml
-          --publish never
-          --config.publish.channel=win-x64
-          --config.forceCodeSigning=true
-          --config.win.signingHashAlgorithms=["sha256"]
-          --config.directories.output=release/x64
+        shell: pwsh
+        run: |
+          $args = @(
+            "npx",
+            "electron-builder",
+            "--win",
+            "nsis",
+            "--x64",
+            "-c",
+            "browso-builder.yml",
+            "--publish",
+            "never",
+            "--config.publish.channel=win-x64",
+            "--config.directories.output=release/x64"
+          )
+
+          if ($env:WINDOWS_SIGNING_ENABLED -eq "true") {
+            $args += "--config.forceCodeSigning=true"
+            $args += '--config.win.signingHashAlgorithms=["sha256"]'
+          }
+
+          & $args[0] @args[1..($args.Count - 1)]
 
       - name: Test packaged Windows application
         shell: pwsh
@@ -530,6 +545,7 @@ jobs:
           cp "$package_path" release-assets/browso-win-x64.exe
 
       - name: Verify Windows signature
+        if: env.WINDOWS_SIGNING_ENABLED == 'true'
         shell: pwsh
         run: |
           pwsh -File scripts/verify-windows-release.ps1 `
