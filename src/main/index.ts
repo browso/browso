@@ -22,31 +22,22 @@ const createWindow = (options: { show?: boolean } = {}): Window => {
   return window;
 };
 
-const waitForSidebarLoad = (window: Window): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const webContents = window.sidebar.view.webContents;
-    if (!webContents.isLoading()) {
-      resolve();
-      return;
-    }
-
-    const timeout = setTimeout(() => {
+const waitForSidebarLoad = async (window: Window): Promise<void> => {
+  let timeout: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
       reject(new Error("Sidebar renderer did not load before the timeout."));
     }, STARTUP_SMOKE_TIMEOUT_MS);
-
-    webContents.once("did-finish-load", () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-    webContents.once("did-fail-load", (_event, errorCode, errorDescription) => {
-      clearTimeout(timeout);
-      reject(
-        new Error(
-          `Sidebar renderer failed to load (${errorCode}): ${errorDescription}`,
-        ),
-      );
-    });
   });
+
+  try {
+    await Promise.race([window.sidebar.waitUntilLoaded(), timeoutPromise]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+};
 
 const runStartupSmokeTest = async (window: Window): Promise<void> => {
   await waitForSidebarLoad(window);
@@ -107,6 +98,7 @@ const runStartupSmokeTest = async (window: Window): Promise<void> => {
   }
 
   logger.info("Packaged startup smoke test passed", result);
+  console.log("Packaged startup smoke test passed", result);
 };
 
 const registerProcessLogging = (): void => {
@@ -129,13 +121,15 @@ app.whenReady().then(() => {
   logger.info("App ready");
   eventManager = new EventManager(() => mainWindow);
 
-  mainWindow = createWindow({ show: !STARTUP_SMOKE_TEST });
+  // A WebContentsView in a hidden BaseWindow can remain suspended on macOS.
+  mainWindow = createWindow({ show: true });
 
   if (STARTUP_SMOKE_TEST) {
     void runStartupSmokeTest(mainWindow)
       .then(() => app.exit(0))
       .catch((error) => {
         logger.error("Packaged startup smoke test failed", error);
+        console.error("Packaged startup smoke test failed", error);
         app.exit(1);
       });
     return;

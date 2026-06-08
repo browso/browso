@@ -13,6 +13,7 @@ export class SideBar {
   private static readonly MIN_WIDTH = 320;
   private static readonly MAX_WIDTH = 720;
   private webContentsView: WebContentsView;
+  private loadPromise: Promise<void>;
   private baseWindow: BaseWindow;
   private llmClient: LLMClient;
   private computerUseManager: ComputerUseManager | null = null;
@@ -24,6 +25,7 @@ export class SideBar {
     this.baseWindow = baseWindow;
     this.width = AISettingsStore.getInstance().getSettings().sidebarWidth;
     this.webContentsView = this.createWebContentsView();
+    this.loadPromise = this.loadRenderer();
     baseWindow.contentView.addChildView(this.webContentsView);
     this.setupBounds();
 
@@ -41,21 +43,21 @@ export class SideBar {
       },
     });
 
-    // Load the Sidebar React app
+    return webContentsView;
+  }
+
+  private loadRenderer(): Promise<void> {
     if (is.dev && process.env["BROWSO_RENDERER_URL"]) {
-      // In development, load through Vite dev server
       const sidebarUrl = new URL(
         "/sidebar/",
         process.env["BROWSO_RENDERER_URL"],
       );
-      webContentsView.webContents.loadURL(sidebarUrl.toString());
-    } else {
-      webContentsView.webContents.loadFile(
-        join(__dirname, "../renderer/sidebar/index.html"),
-      );
+      return this.webContentsView.webContents.loadURL(sidebarUrl.toString());
     }
 
-    return webContentsView;
+    return this.webContentsView.webContents.loadFile(
+      join(__dirname, "../renderer/sidebar/index.html"),
+    );
   }
 
   private setupBounds(): void {
@@ -87,6 +89,10 @@ export class SideBar {
 
   get view(): WebContentsView {
     return this.webContentsView;
+  }
+
+  waitUntilLoaded(): Promise<void> {
+    return this.loadPromise;
   }
 
   get client(): LLMClient {
