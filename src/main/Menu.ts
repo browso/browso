@@ -198,10 +198,7 @@ export class AppMenu {
           },
           {
             label: "Report an Issue",
-            click: () =>
-              this.handleOpenExternal(
-                "https://github.com/browso/browso/issues",
-              ),
+            click: () => this.handleReportIssue(),
           },
         ],
       },
@@ -212,6 +209,44 @@ export class AppMenu {
   }
 
   // Menu action handlers
+  private handleReportIssue(): void {
+    const version = app.getVersion();
+    const platform = process.platform;
+    const arch = process.arch;
+
+    const body = `
+<!-- Please provide a clear and concise description of the issue -->
+
+### Environment
+- **Version:** ${version}
+- **Platform:** ${platform}
+- **Architecture:** ${arch}
+
+### Description
+<!-- A clear and concise description of what the issue is. -->
+
+### Steps to Reproduce
+1.
+2.
+3.
+
+### Expected Behavior
+<!-- What you expected to happen. -->
+
+### Actual Behavior
+<!-- What actually happened. -->
+
+### Additional Context
+<!-- Add any other context or screenshots about the problem here. -->
+`.trim();
+
+    const url = new URL("https://github.com/browso/browso/issues/new");
+    url.searchParams.set("title", "Issue: [Brief Description]");
+    url.searchParams.set("body", body);
+
+    void shell.openExternal(url.toString());
+  }
+
   private handleNewTab(): void {
     this.mainWindow.createTab();
   }
