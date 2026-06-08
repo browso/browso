@@ -1,5 +1,11 @@
 import { WebContents } from "electron";
-import { generateText, stepCountIs, streamText, type LanguageModel } from "ai";
+import {
+  generateText,
+  stepCountIs,
+  streamText,
+  type LanguageModel,
+  type CoreMessage,
+} from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createOllama } from "ai-sdk-ollama";
@@ -29,6 +35,7 @@ type ActionType =
 
 interface ComputerUseRequest {
   goal: string;
+  messages?: CoreMessage[];
 }
 
 interface ScriptGenerationRequest {

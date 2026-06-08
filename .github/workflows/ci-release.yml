@@ -275,34 +275,46 @@ jobs:
             echo "MACOS_SIGNING_ENABLED=true"
           } >> "$GITHUB_ENV"
 
+      - name: Disable Spotlight indexing
+        if: matrix.platform == 'mac'
+        run: sudo mdutil -a -i off
+
       - name: Build application
         run: npm run build
 
       - name: Sign, notarize, and package macOS DMG
         if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED == 'true'
-        run: >
-          npx electron-builder
-          --mac dmg zip
-          --${{ matrix.arch }}
-          -c browso-builder.yml
-          --publish never
-          --config.publish.channel=${{ matrix.channel }}
-          --config.forceCodeSigning=true
-          --config.directories.output=release/${{ matrix.arch }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: >
+            npx electron-builder
+            --mac dmg zip
+            --${{ matrix.arch }}
+            -c browso-builder.yml
+            --publish never
+            --config.publish.channel=${{ matrix.channel }}
+            --config.forceCodeSigning=true
+            --config.directories.output=release/${{ matrix.arch }}
 
       - name: Package ad-hoc signed macOS DMG
         if: matrix.platform == 'mac' && env.MACOS_SIGNING_ENABLED != 'true'
-        run: >
-          npx electron-builder
-          --mac dmg zip
-          --${{ matrix.arch }}
-          -c browso-builder.yml
-          --publish never
-          --config.publish.channel=${{ matrix.channel }}
-          --config.mac.identity=-
-          --config.mac.hardenedRuntime=false
-          --config.mac.notarize=false
-          --config.directories.output=release/${{ matrix.arch }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          command: >
+            npx electron-builder
+            --mac dmg zip
+            --${{ matrix.arch }}
+            -c browso-builder.yml
+            --publish never
+            --config.publish.channel=${{ matrix.channel }}
+            --config.mac.identity=-
+            --config.mac.hardenedRuntime=false
+            --config.mac.notarize=false
+            --config.directories.output=release/${{ matrix.arch }}
 
       - name: Package Windows installer
         if: matrix.platform == 'win'

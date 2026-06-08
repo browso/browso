@@ -243,6 +243,41 @@ export function buildShoppingTools(
     }),
   });
 
+  const rankContentOnPage = defineTool({
+    description:
+      "Rank and extract segments of the current page based on relevance to a specific question or topic. Use this for deep analysis or finding needles in haystacks on large pages.",
+    inputSchema: z.object({
+      query: z.string().describe("The topic or question to rank content for."),
+    }),
+    execute: async ({ query }: { query: string }) => {
+      const text = await activeTab().getTabText();
+      const segments = text
+        .split(/\n\s*\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 40);
+
+      const terms = query.toLowerCase().split(/\s+/);
+      const ranked = segments
+        .map((segment) => {
+          const lower = segment.toLowerCase();
+          let score = 0;
+          for (const term of terms) {
+            if (lower.includes(term)) score += 10;
+          }
+          return { segment, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 8);
+
+      return {
+        query,
+        topSegments: ranked.map((r) => r.segment),
+        matchCount: ranked.length,
+      };
+    },
+  });
+
   const screenshot = defineTool({
     description:
       "Capture the active tab as an image (only if a vision model is in use).",
@@ -886,6 +921,7 @@ export function buildShoppingTools(
     extractCartSummary,
     advanceCheckout,
     detectBlockers,
+    rankContentOnPage,
     handOffToUser,
   };
 }

@@ -759,9 +759,11 @@ export class LLMClient {
     const state = useAgent
       ? await this.window.sidebar.computerUse.startAgentSession({
           goal: request.message.trim(),
+          messages: this.messages,
         })
       : await this.window.sidebar.computerUse.startSession({
           goal: request.message.trim(),
+          messages: this.messages,
         });
 
     const session =
