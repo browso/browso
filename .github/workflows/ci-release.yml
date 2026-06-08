@@ -494,8 +494,8 @@ jobs:
       - name: Package Windows installer
         shell: pwsh
         run: |
-          $args = @(
-            "npx",
+          $command = "npx"
+          $commandArgs = @(
             "electron-builder",
             "--win",
             "nsis",
@@ -509,11 +509,11 @@ jobs:
           )
 
           if ($env:WINDOWS_SIGNING_ENABLED -eq "true") {
-            $args += "--config.forceCodeSigning=true"
-            $args += '--config.win.signingHashAlgorithms=["sha256"]'
+            $commandArgs += "--config.forceCodeSigning=true"
+            $commandArgs += '--config.win.signingHashAlgorithms=["sha256"]'
           }
 
-          & $args[0] @args[1..($args.Count - 1)]
+          & $command @commandArgs
 
       - name: Test packaged Windows application
         shell: pwsh
