@@ -1,6 +1,6 @@
 # Browso
 
-[![Build, Test, Release](https://github.com/browso/browso/actions/workflows/ci-release.yml/badge.svg)](https://github.com/browso/actions/workflows/ci-release.yml)
+[![browso-ci](https://github.com/browso/browso/actions/workflows/ci-release.yml/badge.svg)](https://github.com/browso/browso/actions/workflows/ci-release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/Browso/browso)](https://github.com/Browso/browso/releases)
 
 Browso is a desktop AI browser that combines a page-aware copilot, constrained
@@ -146,17 +146,21 @@ boundaries.
 
 ## CI And Releases
 
-The [Build, Test, Release workflow](.github/workflows/ci-release.yml) runs:
+The [browso-ci workflow](.github/workflows/ci-release.yml) runs:
 
-1. **Code Quality** checks linting and formatting.
-2. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
-3. **Testing** runs type checks, tests, coverage, and uploads Cobertura results.
-4. **Release Planning** defaults every push to `main` to a minor release and
+1. **CodeQL** scans GitHub Actions workflow files.
+2. **CodeQL Advanced** scans the JavaScript and TypeScript source.
+3. **Dependabot Update** validates the dependency automation configuration.
+4. **Pages Build Deployment** dispatches the website build trigger on `main`.
+5. **Code Quality** checks linting and formatting.
+6. **Bootstrap & Build** installs from `package-lock.json` and builds the app.
+7. **Testing** runs type checks, tests, coverage, and uploads Cobertura results.
+8. **Release Planning** defaults every push to `main` to a minor release and
    lets `[release: major]` override it for substantial or breaking changes.
-5. **Release Build** packages macOS, Windows, and Linux downloads when requested.
-6. **Publish Release** creates an immutable stable GitHub release and updates
-   the website release catalog.
-7. **Benchmarks** publishes the latest performance result to the website.
+9. **Release Build** packages macOS, Windows, and Linux downloads when requested.
+10. **Publish Release** creates an immutable stable GitHub release and updates
+    the website release catalog.
+11. **Benchmarks** publishes the latest performance result to the website.
 
 Pull requests validate the project without creating a release. Every commit
 merged or pushed to `main` publishes the next stable minor version, such as
