@@ -11,14 +11,14 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { createOllama } from "ai-sdk-ollama";
 import * as dotenv from "dotenv";
 import { join } from "path";
-import type { Tab } from "./Tab";
-import { AISettingsStore } from "./AISettings";
-import { buildShoppingTools, SHOPPING_AGENT_PROMPT } from "./AgentTools";
+import type { Tab } from "./Tab.ts";
+import { AISettingsStore } from "./AISettings.ts";
+import { buildShoppingTools, SHOPPING_AGENT_PROMPT } from "./AgentTools.ts";
 import {
   buildFallbackAgentReport,
   buildProgressSummary,
-} from "./agentSessionSummary";
-import { logger } from "./Logger";
+} from "./agentSessionSummary.ts";
+import { logger } from "./Logger.ts";
 
 dotenv.config({ path: join(__dirname, "../../.env") });
 

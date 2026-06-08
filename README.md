@@ -162,6 +162,19 @@ The [browso-ci workflow](.github/workflows/ci-release.yml) runs:
     the website release catalog.
 11. **Benchmarks** publishes the latest performance result to the website.
 
+Release artifacts are also published with GitHub build provenance attestations.
+Those attestations tie each binary back to the `browso-ci` workflow, this
+repository, the commit SHA, and the triggering event. Consumers can verify a
+download with:
+
+```bash
+gh attestation verify PATH/TO/ARTIFACT -R Browso/browso
+```
+
+The attestation does not embed a custom slogan or homepage URL, but the
+workflow name, repository identity, release notes, and signed provenance make
+the Browso origin explicit.
+
 Pull requests validate the project without creating a release. Every commit
 merged or pushed to `main` publishes the next stable minor version, such as
 `v1.1.0`, `v1.2.0`, and `v1.3.0`. Add `[release: major]` to the commit message

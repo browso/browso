@@ -4,8 +4,8 @@ import {
   type AppUpdater,
   type UpdateInfo,
 } from "electron-updater";
-import { logger } from "./Logger";
-import type { Window } from "./Window";
+import { logger } from "./Logger.ts";
+import type { Window } from "./Window.ts";
 
 const RELEASES_URL = "https://github.com/Browso/browso/releases";
 

@@ -1,12 +1,12 @@
 import { BaseWindow, shell } from "electron";
-import { Tab } from "./Tab";
-import { TopBar } from "./TopBar";
-import { SideBar } from "./SideBar";
-import { AISettingsStore } from "./AISettings";
-import { BrowserSettings } from "./BrowserSettings";
-import { attachExternalWindowOpenHandler } from "./windowOpenHandler";
-import { APP_ICON_PATH } from "./appIcon";
-import { ProfileContextStore } from "./ProfileContextStore";
+import { Tab } from "./Tab.ts";
+import { TopBar } from "./TopBar.ts";
+import { SideBar } from "./SideBar.ts";
+import { AISettingsStore } from "./AISettings.ts";
+import { BrowserSettings } from "./BrowserSettings.ts";
+import { attachExternalWindowOpenHandler } from "./windowOpenHandler.ts";
+import { APP_ICON_PATH } from "./appIcon.ts";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
 
 export class Window {
   private _baseWindow: BaseWindow;

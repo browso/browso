@@ -1,4 +1,4 @@
-import { app } from "electron";
+import electron from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 
@@ -39,6 +39,8 @@ export interface ProfileContextState {
 interface ProfileContextFile extends ProfileContextState {
   version: 1 | 2;
 }
+
+const { app } = electron;
 
 const DEFAULT_PROFILE_ID = "profile-default";
 const DEFAULT_CONTEXT_ID = "context-default";

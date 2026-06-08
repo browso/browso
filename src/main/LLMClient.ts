@@ -10,22 +10,22 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { createOllama } from "ai-sdk-ollama";
 import * as dotenv from "dotenv";
 import { join } from "path";
-import type { Window } from "./Window";
-import { AISettingsStore, type SearchEngine } from "./AISettings";
-import { logger } from "./Logger";
-import { MemoryStore, type MemoryEntry } from "./MemoryStore";
-import { compactConversationWindow } from "./llmHistory";
-import { extractComparisonRequest } from "./comparisonRequest";
-import type { Tab } from "./Tab";
-import { BrowserContextService } from "./BrowserContextService";
-import { KnowledgeStore } from "./KnowledgeStore";
+import type { Window } from "./Window.ts";
+import { AISettingsStore, type SearchEngine } from "./AISettings.ts";
+import { logger } from "./Logger.ts";
+import { MemoryStore, type MemoryEntry } from "./MemoryStore.ts";
+import { compactConversationWindow } from "./llmHistory.ts";
+import { extractComparisonRequest } from "./comparisonRequest.ts";
+import type { Tab } from "./Tab.ts";
+import { BrowserContextService } from "./BrowserContextService.ts";
+import { KnowledgeStore } from "./KnowledgeStore.ts";
 import {
   AgentModeRegistry,
   routeAgentMode,
   type AgentMode,
-} from "./AgentModes";
-import { assessAutomationGoal } from "./SafetyPolicy";
-import { ProfileContextStore } from "./ProfileContextStore";
+} from "./AgentModes.ts";
+import { assessAutomationGoal } from "./SafetyPolicy.ts";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
 
 // Load environment variables from .env file
 dotenv.config({ path: join(__dirname, "../../.env") });

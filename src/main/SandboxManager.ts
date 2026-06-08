@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import { tmpdir } from "os";
 import { join, basename, extname } from "path";
 import { spawn, type ChildProcess } from "child_process";
-import type { Tab } from "./Tab";
+import type { Tab } from "./Tab.ts";
 
 type SandboxRunStatus = "idle" | "running" | "completed" | "failed";
 

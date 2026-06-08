@@ -2,11 +2,11 @@ import { is } from "@electron-toolkit/utils";
 import { BaseWindow, WebContentsView } from "electron";
 import { randomUUID } from "node:crypto";
 import { join } from "path";
-import { LLMClient } from "./LLMClient";
-import { ComputerUseManager } from "./ComputerUseManager";
-import { SandboxManager } from "./SandboxManager";
-import type { Tab } from "./Tab";
-import { AISettingsStore } from "./AISettings";
+import { LLMClient } from "./LLMClient.ts";
+import { ComputerUseManager } from "./ComputerUseManager.ts";
+import { SandboxManager } from "./SandboxManager.ts";
+import type { Tab } from "./Tab.ts";
+import { AISettingsStore } from "./AISettings.ts";
 
 export class SideBar {
   private static readonly DEFAULT_WIDTH = 400;

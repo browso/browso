@@ -1,7 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { BaseWindow, BrowserWindow } from "electron";
 import { join } from "path";
-import { APP_ICON_PATH } from "./appIcon";
+import { APP_ICON_PATH } from "./appIcon.ts";
 
 export class BrowserSettings {
   private readonly parentWindow: BaseWindow;

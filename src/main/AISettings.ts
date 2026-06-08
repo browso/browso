@@ -1,10 +1,10 @@
-import { app } from "electron";
+import electron from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import {
   LEGACY_BLUEBERRY_WELCOME_URL,
   BROWSO_WELCOME_URL,
-} from "./WelcomePage";
+} from "./WelcomePage.ts";
 import { normalizeHomepage } from "./navigationPolicy.ts";
 
 export type LLMProvider = "ollama" | "openai" | "anthropic";
@@ -37,6 +37,7 @@ const DEFAULT_SIDEBAR_WIDTH = 400;
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MEMORY_ENABLED = true;
 const DEFAULT_HISTORY_ACCESS_ENABLED = true;
+const { app } = electron;
 
 export class AISettingsStore {
   private static instance: AISettingsStore | null = null;

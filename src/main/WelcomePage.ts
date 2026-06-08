@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { SearchEngine } from "./AISettings";
+import type { SearchEngine } from "./AISettings.ts";
 import { APP_ICON_PATH } from "./appIcon.ts";
 
 export const BROWSO_WELCOME_URL = "browso://welcome";

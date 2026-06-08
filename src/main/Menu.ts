@@ -6,12 +6,12 @@ import {
   clipboard,
   MenuItemConstructorOptions,
 } from "electron";
-import type { Window } from "./Window";
-import { AISettingsStore } from "./AISettings";
-import { UpdateManager } from "./UpdateManager";
-import { ProfileContextStore } from "./ProfileContextStore";
-import { AgentModeRegistry } from "./AgentModes";
-import { HistoryStore } from "./HistoryStore";
+import type { Window } from "./Window.ts";
+import { AISettingsStore } from "./AISettings.ts";
+import { UpdateManager } from "./UpdateManager.ts";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
+import { AgentModeRegistry } from "./AgentModes.ts";
+import { HistoryStore } from "./HistoryStore.ts";
 
 export class AppMenu {
   private mainWindow: Window;

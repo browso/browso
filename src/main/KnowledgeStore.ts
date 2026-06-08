@@ -1,9 +1,9 @@
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import type { BrowserPageContext } from "./BrowserContextService";
-import { rankKnowledgePages } from "./knowledgeRanking";
-import { ProfileContextStore } from "./ProfileContextStore";
+import type { BrowserPageContext } from "./BrowserContextService.ts";
+import { rankKnowledgePages } from "./knowledgeRanking.ts";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
 
 export interface KnowledgePage {
   id: string;

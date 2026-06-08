@@ -1,11 +1,11 @@
 import { app, BrowserWindow } from "electron";
 import { electronApp as browsoApp } from "@electron-toolkit/utils";
-import { Window } from "./Window";
-import { AppMenu } from "./Menu";
-import { EventManager } from "./EventManager";
-import { logger } from "./Logger";
-import { UpdateManager } from "./UpdateManager";
-import { APP_ICON_PATH } from "./appIcon";
+import { Window } from "./Window.ts";
+import { AppMenu } from "./Menu.ts";
+import { EventManager } from "./EventManager.ts";
+import { logger } from "./Logger.ts";
+import { UpdateManager } from "./UpdateManager.ts";
+import { APP_ICON_PATH } from "./appIcon.ts";
 
 const STARTUP_SMOKE_TEST = process.argv.includes("--smoke-test");
 const STARTUP_SMOKE_TIMEOUT_MS = 20_000;

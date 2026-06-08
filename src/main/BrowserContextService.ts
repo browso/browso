@@ -1,6 +1,6 @@
-import type { Window } from "./Window";
-import type { Tab } from "./Tab";
-import { logger } from "./Logger";
+import type { Window } from "./Window.ts";
+import type { Tab } from "./Tab.ts";
+import { logger } from "./Logger.ts";
 
 export interface BrowserPageContext {
   tabId: string;

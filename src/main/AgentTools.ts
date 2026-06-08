@@ -1,9 +1,9 @@
 import { tool, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
-import type { Tab } from "./Tab";
+import type { Tab } from "./Tab.ts";
 import type { WebContents } from "electron";
-import { AISettingsStore } from "./AISettings";
-import { HistoryStore } from "./HistoryStore";
+import { AISettingsStore } from "./AISettings.ts";
+import { HistoryStore } from "./HistoryStore.ts";
 
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));

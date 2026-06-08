@@ -1,5 +1,5 @@
 import { NativeImage, WebContentsView, type WebContents } from "electron";
-import { AISettingsStore } from "./AISettings";
+import { AISettingsStore } from "./AISettings.ts";
 import {
   BROWSO_AI_HASH_PREFIX,
   BROWSO_AI_REQUEST_URL,
@@ -7,8 +7,8 @@ import {
   buildWelcomePageHtml,
   isWelcomeUrl,
   parseWelcomeAIRequest,
-} from "./WelcomePage";
-import { HistoryStore } from "./HistoryStore";
+} from "./WelcomePage.ts";
+import { HistoryStore } from "./HistoryStore.ts";
 
 export class Tab {
   private webContentsView: WebContentsView;

@@ -1,16 +1,16 @@
 import { ipcMain, WebContents } from "electron";
-import type { Window } from "./Window";
-import { AISettingsStore } from "./AISettings";
-import { logger } from "./Logger";
-import { MemoryStore } from "./MemoryStore";
-import { UpdateManager } from "./UpdateManager";
-import { ipcSchemas, parseIpcInput } from "./ipcSchemas";
-import { BrowserContextService } from "./BrowserContextService";
-import { KnowledgeStore } from "./KnowledgeStore";
+import type { Window } from "./Window.ts";
+import { AISettingsStore } from "./AISettings.ts";
+import { logger } from "./Logger.ts";
+import { MemoryStore } from "./MemoryStore.ts";
+import { UpdateManager } from "./UpdateManager.ts";
+import { ipcSchemas, parseIpcInput } from "./ipcSchemas.ts";
+import { BrowserContextService } from "./BrowserContextService.ts";
+import { KnowledgeStore } from "./KnowledgeStore.ts";
 import {
   ProfileContextStore,
   type ProfileContextState,
-} from "./ProfileContextStore";
+} from "./ProfileContextStore.ts";
 
 const SENSITIVE_CHANNELS = new Set([
   "sidebar-chat-message",

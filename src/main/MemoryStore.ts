@@ -1,7 +1,7 @@
 import { app } from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { ProfileContextStore } from "./ProfileContextStore";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
 
 export interface MemoryEntry {
   id: string;

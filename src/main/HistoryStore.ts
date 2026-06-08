@@ -1,7 +1,7 @@
-import { app } from "electron";
+import electron from "electron";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { ProfileContextStore } from "./ProfileContextStore";
+import { ProfileContextStore } from "./ProfileContextStore.ts";
 
 export interface HistoryEntry {
   id: string;
@@ -23,8 +23,13 @@ export class HistoryStore {
   private contexts: Record<string, HistoryEntry[]>;
   private readonly MAX_ENTRIES_PER_CONTEXT = 2000;
 
+  private static readonly app = electron.app;
+
   private constructor() {
-    this.filePath = join(app.getPath("userData"), "history-store.json");
+    this.filePath = join(
+      HistoryStore.app.getPath("userData"),
+      "history-store.json",
+    );
     this.profileContextStore = ProfileContextStore.getInstance();
     this.contexts = this.load();
   }
