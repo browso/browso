@@ -120,7 +120,9 @@ const SplitTabGroup: React.FC<SplitTabGroupProps> = ({
               <span className="size-3">
                 <Favicon src={getFavicon(tab.url)} />
               </span>
-              <span className="truncate">{tab.title || `Pane ${index + 1}`}</span>
+              <span className="truncate">
+                {tab.title || `Pane ${index + 1}`}
+              </span>
             </button>
           ))}
         </div>

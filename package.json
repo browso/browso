@@ -5,7 +5,7 @@
   "description": "A layered AI browser copilot, autonomous web agent, and local knowledge browser.",
   "main": "./out/main/index.js",
   "author": "Xaroq",
-  "homepage": "https://github.com/Xaroq/browso",
+  "homepage": "https://github.com/browso/browso",
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",

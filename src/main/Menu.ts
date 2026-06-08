@@ -193,15 +193,15 @@ export class AppMenu {
           { type: "separator" },
           {
             label: "Browso on GitHub",
-            click: () => this.handleOpenExternal(
-              "https://github.com/Xaroq/browso",
-            ),
+            click: () =>
+              this.handleOpenExternal("https://github.com/browso/browso"),
           },
           {
             label: "Report an Issue",
-            click: () => this.handleOpenExternal(
-              "https://github.com/browso/browso/issues",
-            ),
+            click: () =>
+              this.handleOpenExternal(
+                "https://github.com/browso/browso/issues",
+              ),
           },
         ],
       },
