@@ -828,30 +828,21 @@ export class LLMClient {
 
   private async prepareMessagesWithContext(
     request: ChatRequest,
-  ): Promise<CoreMessage[]> {
-    const currentPage = await this.browserContext.getActivePageContext(12_000);
+  ): Promise<{ system: string; messages: CoreMessage[] }> {
+    const currentPage = await this.browserContext.getActivePageContext(3_000);
     const mode = AgentModeRegistry.get(routeAgentMode(request.message));
     const shouldIncludeTabs =
       mode.id === "research" ||
       /\b(all|open|these)\s+tabs?\b|\bcompare\s+tabs?\b/i.test(request.message);
     const tabContexts = shouldIncludeTabs
-      ? await this.browserContext.getOpenTabContexts(6_000)
+      ? await this.browserContext.getOpenTabContexts(2_000)
       : [];
     const knowledge = this.knowledgeStore.search(request.message, 5);
 
-    // Build system message
-    const systemMessage: CoreMessage = {
-      role: "system",
-      content: this.buildSystemPrompt(
-        currentPage,
-        tabContexts,
-        knowledge,
-        mode,
-      ),
+    return {
+      system: this.buildSystemPrompt(currentPage, tabContexts, knowledge, mode),
+      messages: this.messages,
     };
-
-    // Include all messages in history (system + conversation)
-    return [systemMessage, ...this.messages];
   }
 
   private buildSystemPrompt(
@@ -906,7 +897,7 @@ export class LLMClient {
               (tab, index) =>
                 `TAB ${index + 1}\nTitle: ${tab.title}\nURL: ${
                   tab.url
-                }\nText: ${this.truncateText(tab.text, 2_500)}`,
+                }\nText: ${this.truncateText(tab.text, 1_500)}`,
             )
             .join("\n\n"),
       );
@@ -1035,12 +1026,13 @@ export class LLMClient {
   }
 
   private async streamResponse(
-    messages: CoreMessage[],
+    { system, messages }: { system: string; messages: CoreMessage[] },
     messageId: string,
     model: LanguageModel,
   ): Promise<void> {
     const result = await streamText({
       model,
+      system,
       messages,
       temperature: DEFAULT_TEMPERATURE,
       maxRetries: 3,

@@ -17,7 +17,7 @@ test("compactConversationWindow archives older messages and strips older screens
 
   const result = compactConversationWindow(messages, null);
 
-  assert.equal(result.messages.length, 12);
+  assert.equal(result.messages.length, 8);
   assert.ok(result.archivedSummary?.includes("message 0"));
   const imageMessages = result.messages.filter(
     (message) =>
@@ -30,5 +30,5 @@ test("compactConversationWindow archives older messages and strips older screens
           part.type === "image",
       ),
   );
-  assert.equal(imageMessages.length, 2);
+  assert.equal(imageMessages.length, 1);
 });

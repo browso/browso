@@ -1,7 +1,7 @@
 import type { CoreMessage } from "ai";
 
-const MAX_LIVE_MESSAGES = 12;
-const MAX_RECENT_IMAGE_MESSAGES = 2;
+const MAX_LIVE_MESSAGES = 8;
+const MAX_RECENT_IMAGE_MESSAGES = 1;
 const MAX_SUMMARY_LINES = 10;
 const MAX_LINE_LENGTH = 180;
 

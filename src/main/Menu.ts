@@ -1,5 +1,13 @@
-import { Menu, app, dialog, MenuItemConstructorOptions } from "electron";
+import {
+  Menu,
+  app,
+  dialog,
+  shell,
+  clipboard,
+  MenuItemConstructorOptions,
+} from "electron";
 import type { Window } from "./Window";
+import { AISettingsStore } from "./AISettings";
 
 export class AppMenu {
   private mainWindow: Window;
@@ -48,6 +56,10 @@ export class AppMenu {
         accelerator: isMac ? "Ctrl+Command+F" : "F11",
         click: () => this.handleToggleFullscreen(),
       },
+      { type: "separator" },
+      { label: "Zoom In", accelerator: "CmdOrCtrl+Plus", role: "zoomIn" },
+      { label: "Zoom Out", accelerator: "CmdOrCtrl+-", role: "zoomOut" },
+      { label: "Actual Size", accelerator: "CmdOrCtrl+0", role: "resetZoom" },
     ];
 
     const template: MenuItemConstructorOptions[] = [
@@ -100,6 +112,37 @@ export class AppMenu {
         ],
       },
       {
+        label: "Tools",
+        submenu: [
+          {
+            label: "Duplicate Tab",
+            accelerator: "CmdOrCtrl+Shift+D",
+            click: () => this.handleDuplicateTab(),
+          },
+          {
+            label: "Open Welcome Page",
+            accelerator: "CmdOrCtrl+Shift+N",
+            click: () => this.handleOpenWelcomePage(),
+          },
+          { type: "separator" },
+          {
+            label: "Copy Current URL",
+            accelerator: "CmdOrCtrl+Shift+C",
+            click: () => this.handleCopyCurrentUrl(),
+          },
+          {
+            label: "Open Current Page in Default Browser",
+            click: () => this.handleOpenCurrentPageInDefaultBrowser(),
+          },
+          { type: "separator" },
+          {
+            label: "Toggle Split View",
+            accelerator: "CmdOrCtrl+\\",
+            click: () => this.handleToggleSplitView(),
+          },
+        ],
+      },
+      {
         label: "Edit",
         submenu: [
           { label: "Undo", accelerator: "CmdOrCtrl+Z", role: "undo" },
@@ -132,6 +175,12 @@ export class AppMenu {
             accelerator: "CmdOrCtrl+Right",
             click: () => this.handleGoForward(),
           },
+          { type: "separator" },
+          {
+            label: "Home",
+            accelerator: "CmdOrCtrl+Shift+H",
+            click: () => this.handleOpenHomepage(),
+          },
         ],
       },
       {
@@ -140,6 +189,19 @@ export class AppMenu {
           {
             label: "About Browso",
             click: () => this.handleAbout(),
+          },
+          { type: "separator" },
+          {
+            label: "Browso on GitHub",
+            click: () => this.handleOpenExternal(
+              "https://github.com/Xaroq/browso",
+            ),
+          },
+          {
+            label: "Report an Issue",
+            click: () => this.handleOpenExternal(
+              "https://github.com/browso/browso/issues",
+            ),
           },
         ],
       },
@@ -203,6 +265,52 @@ export class AppMenu {
     if (this.mainWindow.activeTab) {
       this.mainWindow.activeTab.goForward();
     }
+  }
+
+  private handleOpenHomepage(): void {
+    const homepage = AISettingsStore.getInstance().getSettings().homepage;
+    if (this.mainWindow.activeTab) {
+      void this.mainWindow.activeTab.loadURL(homepage);
+      return;
+    }
+    this.mainWindow.createTab(homepage);
+  }
+
+  private handleDuplicateTab(): void {
+    const currentUrl = this.mainWindow.activeTab?.url;
+    this.mainWindow.createTab(currentUrl);
+  }
+
+  private handleOpenWelcomePage(): void {
+    if (this.mainWindow.activeTab) {
+      void this.mainWindow.activeTab.loadURL("browso://welcome");
+      return;
+    }
+    this.mainWindow.createTab("browso://welcome");
+  }
+
+  private handleCopyCurrentUrl(): void {
+    const currentUrl = this.mainWindow.activeTab?.url;
+    if (!currentUrl) {
+      return;
+    }
+    clipboard.writeText(currentUrl);
+  }
+
+  private handleOpenCurrentPageInDefaultBrowser(): void {
+    const currentUrl = this.mainWindow.activeTab?.url;
+    if (!currentUrl || !/^https?:\/\//.test(currentUrl)) {
+      return;
+    }
+    void shell.openExternal(currentUrl);
+  }
+
+  private handleToggleSplitView(): void {
+    this.mainWindow.toggleSplitView();
+  }
+
+  private handleOpenExternal(url: string): void {
+    void shell.openExternal(url);
   }
 
   private handleAbout(): void {
