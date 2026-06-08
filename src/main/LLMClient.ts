@@ -927,6 +927,19 @@ export class LLMClient {
       }
     }
 
+    parts.push(
+      `\nHistory Access: ${settings.historyAccessEnabled ? "Enabled" : "Disabled"}.`,
+    );
+    if (settings.historyAccessEnabled) {
+      parts.push(
+        "You have permission to search the user's browsing history if needed to answer questions about past research.",
+      );
+    } else {
+      parts.push(
+        "You do NOT have permission to access the user's browsing history. If the user asks about past visits, explain that history access is disabled in Settings.",
+      );
+    }
+
     if (this.archivedConversationSummary) {
       parts.push(
         `\nArchived conversation summary:\n${this.archivedConversationSummary}`,

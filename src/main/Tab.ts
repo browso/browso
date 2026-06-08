@@ -8,6 +8,7 @@ import {
   isWelcomeUrl,
   parseWelcomeAIRequest,
 } from "./WelcomePage";
+import { HistoryStore } from "./HistoryStore";
 
 export class Tab {
   private webContentsView: WebContentsView;
@@ -62,6 +63,7 @@ export class Tab {
     // Update title when page title changes
     this.webContentsView.webContents.on("page-title-updated", (_, title) => {
       this._title = title;
+      this.recordHistory();
     });
 
     // Update URL when navigation occurs
@@ -70,6 +72,7 @@ export class Tab {
         return;
       }
       this._url = url;
+      this.recordHistory();
     });
 
     this.webContentsView.webContents.on("did-navigate-in-page", (_, url) => {
@@ -84,7 +87,14 @@ export class Tab {
         return;
       }
       this._url = url;
+      this.recordHistory();
     });
+  }
+
+  private recordHistory(): void {
+    if (this._url && !this._url.startsWith("data:") && !isWelcomeUrl(this._url)) {
+      HistoryStore.getInstance().addEntry(this._url, this._title);
+    }
   }
 
   // Getters

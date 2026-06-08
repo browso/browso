@@ -19,6 +19,7 @@ export interface AISettings {
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
+  historyAccessEnabled: boolean;
 }
 
 const DEFAULTS: Record<LLMProvider, { model: string }> = {
@@ -35,6 +36,7 @@ const DEFAULT_SEARCH_ENGINE: SearchEngine = "duckduckgo";
 const DEFAULT_SIDEBAR_WIDTH = 400;
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MEMORY_ENABLED = true;
+const DEFAULT_HISTORY_ACCESS_ENABLED = true;
 
 export class AISettingsStore {
   private static instance: AISettingsStore | null = null;
@@ -92,6 +94,10 @@ export class AISettingsStore {
         input.memoryEnabled ??
         this.settings.memoryEnabled ??
         DEFAULT_MEMORY_ENABLED,
+      historyAccessEnabled:
+        input.historyAccessEnabled ??
+        this.settings.historyAccessEnabled ??
+        DEFAULT_HISTORY_ACCESS_ENABLED,
     };
 
     if (input.provider && !input.model) {
@@ -153,6 +159,10 @@ export class AISettingsStore {
           typeof parsed.memoryEnabled === "boolean"
             ? parsed.memoryEnabled
             : fallback.memoryEnabled,
+        historyAccessEnabled:
+          typeof parsed.historyAccessEnabled === "boolean"
+            ? parsed.historyAccessEnabled
+            : fallback.historyAccessEnabled,
       };
     } catch {
       return fallback;
@@ -187,6 +197,7 @@ export class AISettingsStore {
       autoRouteToSandbox: true,
       sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
       memoryEnabled: DEFAULT_MEMORY_ENABLED,
+      historyAccessEnabled: DEFAULT_HISTORY_ACCESS_ENABLED,
     };
   }
 

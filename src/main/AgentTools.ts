@@ -2,7 +2,8 @@ import { tool, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { Tab } from "./Tab";
 import type { WebContents } from "electron";
-import type { AISettingsStore } from "./AISettings";
+import { AISettingsStore } from "./AISettings";
+import { HistoryStore } from "./HistoryStore";
 
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -873,6 +874,32 @@ export function buildShoppingTools(
     },
   });
 
+  const searchHistory = defineTool({
+    description:
+      "Search the user's browsing history for previous sites or research. Requires explicit user consent via Settings.",
+    inputSchema: z.object({
+      query: z.string().describe("The search query for history."),
+      limit: z.number().optional().default(15),
+    }),
+    execute: async ({ query, limit }: { query: string; limit?: number }) => {
+      if (!settingsStore.getSettings().historyAccessEnabled) {
+        return {
+          error:
+            "History access is currently disabled by the user in Settings. Please ask the user to enable 'History Access' if they want me to search their past browsing activity.",
+        };
+      }
+      const results = HistoryStore.getInstance().search(query, limit);
+      return {
+        query,
+        results: results.map((r) => ({
+          title: r.title,
+          url: r.url,
+          visitedAt: new Date(r.visitedAt).toLocaleString(),
+        })),
+      };
+    },
+  });
+
   const handOffToUser = defineTool({
     description:
       "Stop automation and prompt the user to take over (e.g., to enter payment info). Use this at checkout, login walls, captchas, or 2FA.",
@@ -922,6 +949,7 @@ export function buildShoppingTools(
     advanceCheckout,
     detectBlockers,
     rankContentOnPage,
+    searchHistory,
     handOffToUser,
   };
 }
@@ -974,13 +1002,20 @@ async function extractSearchResults(
   }
 }
 
-export const SHOPPING_AGENT_PROMPT = `You are Browso, a local browser agent. Your job is to help the user complete multi-step browsing tasks end-to-end while staying safe around sensitive actions.
+export const SHOPPING_AGENT_PROMPT = `You are Browso, a world-class professional browser agent. Your job is to help the user complete multi-step browsing, research, and shopping tasks end-to-end.
 
-You are not limited to shopping. You can research pages, compare options, navigate websites, find information, open the right result, progress through forms, move toward checkout, and explain what you found through your browser actions.
+You are not limited to shopping. You can research deep topics, compare options across tabs, navigate websites, find specific information, open the right result, and explain what you found.
 
 If the user asks a conversational question that requires looking through websites, use the browser tools to inspect pages and gather the answer. If the user asks for a shopping task, continue until the cart or checkout stage and then hand off before payment.
 
-Workflow:
+Workflow & Intelligence:
+1. CONTEXT RETENTION: Always check the conversation history. If you've already found a relevant page, do not search for it again. Stay on the current page unless it's the wrong one.
+2. PROFESSIONAL ANALYSIS: Use rankContentOnPage to find specific details on large pages instead of just reading the top section.
+3. HISTORY AWARENESS: If you need to find information previously seen by the user, use searchHistory (requires user consent).
+4. EFFICIENCY: Prefer higher-level tools like clickBestMatch or findOnPage over raw element IDs when possible.
+5. REASONING: Explain your next major move briefly in the text response.
+
+Detailed Workflow:
 1. If you do not already know the right site, use webSearch.
 2. After landing on a page, inspect it with inspectPage or scanCommercePage before acting blindly.
 3. Prefer higher-level tools first: searchCurrentSite, openSearchResult, openProductCandidate, openMatchingLink, clickBestMatch, findOnPage, typeIntoBestField, advanceCheckout, extractCartSummary.
@@ -1000,7 +1035,7 @@ Rules:
 - If you hit a login wall, captcha, or 2FA, handOffToUser immediately.
 - Prefer advancing to checkout and stopping before final payment submission.
 - When the task is informational, keep browsing until you have enough evidence to answer well.
-- For informational tasks, use inspectPage, readPage, findOnPage, openMatchingLink, and openSearchResult to gather evidence before concluding.
+- For informational tasks, use inspectPage, readPage, rankContentOnPage, findOnPage, openMatchingLink, and openSearchResult to gather evidence before concluding.
 - If the user names a destination page or section, try openMatchingLink before falling back to low-level actions.
 - If a click path or search path fails, recover with a different query, openMatchingLink, findOnPage, goBack, reloadPage, or typeIntoBestField.
 - Confirm price and item before adding to cart.

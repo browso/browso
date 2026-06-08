@@ -11,6 +11,7 @@ import { AISettingsStore } from "./AISettings";
 import { UpdateManager } from "./UpdateManager";
 import { ProfileContextStore } from "./ProfileContextStore";
 import { AgentModeRegistry } from "./AgentModes";
+import { HistoryStore } from "./HistoryStore";
 
 export class AppMenu {
   private mainWindow: Window;
@@ -211,7 +212,22 @@ export class AppMenu {
           { type: "separator" },
           {
             label: "History",
-            click: () => this.handleNotImplemented("History View"),
+            submenu: [
+              {
+                label: "Show Full History",
+                click: () => this.handleAIRun("Show my recent browsing history"),
+              },
+              {
+                label: "Search History…",
+                accelerator: "CmdOrCtrl+H",
+                click: () => this.handleAIDraft("Search my history for "),
+              },
+              { type: "separator" },
+              {
+                label: "Clear History…",
+                click: () => this.handleClearHistory(),
+              },
+            ],
           },
           {
             label: "Downloads",
@@ -540,6 +556,31 @@ export class AppMenu {
   private handleStopTasks(): void {
     if (this.mainWindow.activeTab) {
       this.mainWindow.activeTab.stop();
+    }
+  }
+
+  private async handleClearHistory(): Promise<void> {
+    const { response } = await dialog.showMessageBox(
+      this.mainWindow.baseWindow,
+      {
+        type: "warning",
+        buttons: ["Clear History", "Cancel"],
+        defaultId: 0,
+        cancelId: 1,
+        title: "Clear Browsing History",
+        message: "Are you sure you want to clear your browsing history?",
+        detail: "This will remove all visited pages from the current profile.",
+      },
+    );
+
+    if (response === 0) {
+      HistoryStore.getInstance().clear();
+      void dialog.showMessageBox(this.mainWindow.baseWindow, {
+        type: "info",
+        title: "History Cleared",
+        message: "Browsing history has been successfully cleared.",
+        buttons: ["OK"],
+      });
     }
   }
 
