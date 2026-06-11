@@ -513,12 +513,14 @@ export class ComputerUseManager {
         return createOpenAI({
           apiKey: process.env.OPENAI_API_KEY,
         })(settings.model);
-      case "huggingface":
-        return createOpenAI({
+      case "huggingface": {
+        const provider = createOpenAI({
           apiKey: process.env.HF_TOKEN || "public-space",
           baseURL: `${settings.huggingFaceBaseUrl}/v1`,
           name: "huggingface",
-        })(settings.model);
+        });
+        return provider.chat(settings.model);
+      }
       case "ollama":
         return createOllama({
           baseURL: settings.ollamaBaseUrl,

@@ -42,6 +42,8 @@ test("chat and computer use preflight the Hugging Face Space", () => {
 
   assert.match(llmClient, /ensureHuggingFaceAvailable/);
   assert.match(llmClient, /Hugging Face Space is unavailable for chat/);
+  assert.match(llmClient, /provider\.chat\(settings\.model\)/);
   assert.match(computerUse, /getModelProviderAvailability/);
   assert.match(computerUse, /buildHuggingFaceInferenceErrorMessage/);
+  assert.match(computerUse, /provider\.chat\(settings\.model\)/);
 });
