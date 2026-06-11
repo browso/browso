@@ -22,10 +22,14 @@ import { logger } from "./Logger.ts";
 import {
   buildOllamaMissingModelMessage,
   buildOllamaUnavailableMessage,
-  type OllamaAvailabilityResult,
   ensureOllamaAvailable,
   normalizeOllamaBaseUrl,
 } from "./ollamaSupport.ts";
+import {
+  buildHuggingFaceInferenceErrorMessage,
+  ensureHuggingFaceAvailable,
+  normalizeHuggingFaceBaseUrl,
+} from "./huggingFaceSupport.ts";
 
 dotenv.config({ path: join(__dirname, "../../.env") });
 
@@ -279,7 +283,7 @@ export class ComputerUseManager {
     session: ComputerUseSession,
     goal: string,
   ): Promise<void> {
-    const availability = await this.getOllamaAvailability();
+    const availability = await this.getModelProviderAvailability();
     if (availability) {
       throw new Error(availability.message);
     }
@@ -466,16 +470,31 @@ export class ComputerUseManager {
     );
   }
 
-  private async getOllamaAvailability(): Promise<OllamaAvailabilityResult | null> {
+  private async getModelProviderAvailability(): Promise<{
+    provider: "huggingface" | "ollama";
+    message: string;
+  } | null> {
     const settings = this.settingsStore.getSettings();
-    if (settings.provider !== "ollama") {
-      return null;
+
+    if (settings.provider === "huggingface") {
+      const availability = await ensureHuggingFaceAvailable(
+        settings.huggingFaceBaseUrl,
+      );
+      return availability.available
+        ? null
+        : { provider: "huggingface", message: availability.message };
     }
 
-    const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
-      attemptWake: true,
-    });
-    return availability.available ? null : availability;
+    if (settings.provider === "ollama") {
+      const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
+        attemptWake: true,
+      });
+      return availability.available
+        ? null
+        : { provider: "ollama", message: availability.message };
+    }
+
+    return null;
   }
 
   private initializeModel(): LanguageModel {
@@ -519,12 +538,10 @@ export class ComputerUseManager {
       return heuristicPlan;
     }
 
-    const availability = await this.getOllamaAvailability();
+    const availability = await this.getModelProviderAvailability();
     if (availability) {
-      logger.warn("Ollama is unavailable for computer use planning", {
-        baseUrl: availability.baseUrl,
-        wakeAttempted: availability.wakeAttempted,
-        wakeStarted: availability.wakeStarted,
+      logger.warn("Model provider is unavailable for computer use planning", {
+        provider: availability.provider,
       });
       return this.buildFallbackPlan(goal, snapshot.url);
     }
@@ -577,12 +594,10 @@ export class ComputerUseManager {
   private async buildScript(goal: string): Promise<string> {
     const snapshot = await this.getPageSnapshot();
 
-    const availability = await this.getOllamaAvailability();
+    const availability = await this.getModelProviderAvailability();
     if (availability) {
-      logger.warn("Ollama is unavailable for computer use scripting", {
-        baseUrl: availability.baseUrl,
-        wakeAttempted: availability.wakeAttempted,
-        wakeStarted: availability.wakeStarted,
+      logger.warn("Model provider is unavailable for computer use scripting", {
+        provider: availability.provider,
       });
       return `// No LLM configured. Start with this scaffold.
 async function runBrowsoTask() {
@@ -646,12 +661,10 @@ runBrowsoTask();`;
       session.steps,
     );
 
-    const availability = await this.getOllamaAvailability();
+    const availability = await this.getModelProviderAvailability();
     if (availability) {
-      logger.warn("Ollama is unavailable for computer use reporting", {
-        baseUrl: availability.baseUrl,
-        wakeAttempted: availability.wakeAttempted,
-        wakeStarted: availability.wakeStarted,
+      logger.warn("Model provider is unavailable for computer use reporting", {
+        provider: availability.provider,
       });
       return fallback;
     }
@@ -1246,6 +1259,18 @@ runBrowsoTask();`;
             false,
           );
         }
+      }
+
+      if (
+        settings.provider === "huggingface" &&
+        (message.includes("500") ||
+          message.includes("inference") ||
+          message.includes("chat template") ||
+          message.includes("apply_chat_template"))
+      ) {
+        return buildHuggingFaceInferenceErrorMessage(
+          normalizeHuggingFaceBaseUrl(settings.huggingFaceBaseUrl),
+        );
       }
 
       return error.message;

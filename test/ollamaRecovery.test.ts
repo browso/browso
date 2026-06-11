@@ -18,7 +18,7 @@ test("ollama recovery flow wakes, retries, and explains how to install", () => {
   assert.match(eventManager, /ensureOllamaAvailable/);
   assert.match(llmClient, /ensureModelProviderReady/);
   assert.match(llmClient, /buildOllamaMissingModelMessage/);
-  assert.match(computerUse, /getOllamaAvailability/);
+  assert.match(computerUse, /getModelProviderAvailability/);
   assert.match(computerUse, /buildOllamaUnavailableMessage/);
   assert.match(settings, /Try to wake Ollama/);
   assert.match(settings, /The selected model/);

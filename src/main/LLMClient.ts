@@ -26,6 +26,11 @@ import {
   normalizeOllamaBaseUrl,
 } from "./ollamaSupport.ts";
 import {
+  buildHuggingFaceInferenceErrorMessage,
+  ensureHuggingFaceAvailable,
+  normalizeHuggingFaceBaseUrl,
+} from "./huggingFaceSupport.ts";
+import {
   AgentModeRegistry,
   routeAgentMode,
   type AgentMode,
@@ -1173,6 +1178,19 @@ export class LLMClient {
       }
     }
 
+    if (settings.provider === "huggingface") {
+      if (
+        message.includes("500") ||
+        message.includes("inference") ||
+        message.includes("chat template") ||
+        message.includes("apply_chat_template")
+      ) {
+        return buildHuggingFaceInferenceErrorMessage(
+          normalizeHuggingFaceBaseUrl(settings.huggingFaceBaseUrl),
+        );
+      }
+    }
+
     if (
       message.includes("network") ||
       message.includes("fetch") ||
@@ -1222,24 +1240,41 @@ export class LLMClient {
 
   private async ensureModelProviderReady(messageId: string): Promise<boolean> {
     const settings = this.settingsStore.getSettings();
-    if (settings.provider !== "ollama") {
-      return true;
+
+    if (settings.provider === "huggingface") {
+      const availability = await ensureHuggingFaceAvailable(
+        settings.huggingFaceBaseUrl,
+      );
+      if (availability.available) {
+        return true;
+      }
+
+      logger.warn("Hugging Face Space is unavailable for chat", {
+        baseUrl: availability.baseUrl,
+        status: availability.status,
+      });
+      this.sendErrorMessage(messageId, availability.message);
+      return false;
     }
 
-    const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
-      attemptWake: true,
-    });
-    if (availability.available) {
-      return true;
+    if (settings.provider === "ollama") {
+      const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
+        attemptWake: true,
+      });
+      if (availability.available) {
+        return true;
+      }
+
+      logger.warn("Ollama is unavailable for chat", {
+        baseUrl: availability.baseUrl,
+        wakeAttempted: availability.wakeAttempted,
+        wakeStarted: availability.wakeStarted,
+      });
+      this.sendErrorMessage(messageId, availability.message);
+      return false;
     }
 
-    logger.warn("Ollama is unavailable for chat", {
-      baseUrl: availability.baseUrl,
-      wakeAttempted: availability.wakeAttempted,
-      wakeStarted: availability.wakeStarted,
-    });
-    this.sendErrorMessage(messageId, availability.message);
-    return false;
+    return true;
   }
 
   private initializeModel(): LanguageModel | null {
