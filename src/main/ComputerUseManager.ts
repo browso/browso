@@ -19,6 +19,13 @@ import {
   buildProgressSummary,
 } from "./agentSessionSummary.ts";
 import { logger } from "./Logger.ts";
+import {
+  buildOllamaMissingModelMessage,
+  buildOllamaUnavailableMessage,
+  type OllamaAvailabilityResult,
+  ensureOllamaAvailable,
+  normalizeOllamaBaseUrl,
+} from "./ollamaSupport.ts";
 
 dotenv.config({ path: join(__dirname, "../../.env") });
 
@@ -272,6 +279,11 @@ export class ComputerUseManager {
     session: ComputerUseSession,
     goal: string,
   ): Promise<void> {
+    const availability = await this.getOllamaAvailability();
+    if (availability) {
+      throw new Error(availability.message);
+    }
+
     let model: LanguageModel;
     try {
       model = this.initializeModel();
@@ -454,6 +466,18 @@ export class ComputerUseManager {
     );
   }
 
+  private async getOllamaAvailability(): Promise<OllamaAvailabilityResult | null> {
+    const settings = this.settingsStore.getSettings();
+    if (settings.provider !== "ollama") {
+      return null;
+    }
+
+    const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
+      attemptWake: true,
+    });
+    return availability.available ? null : availability;
+  }
+
   private initializeModel(): LanguageModel {
     const settings = this.settingsStore.getSettings();
 
@@ -469,6 +493,12 @@ export class ComputerUseManager {
         }
         return createOpenAI({
           apiKey: process.env.OPENAI_API_KEY,
+        })(settings.model);
+      case "huggingface":
+        return createOpenAI({
+          apiKey: process.env.HF_TOKEN || "public-space",
+          baseURL: `${settings.huggingFaceBaseUrl}/v1`,
+          name: "huggingface",
         })(settings.model);
       case "ollama":
         return createOllama({
@@ -489,6 +519,16 @@ export class ComputerUseManager {
       return heuristicPlan;
     }
 
+    const availability = await this.getOllamaAvailability();
+    if (availability) {
+      logger.warn("Ollama is unavailable for computer use planning", {
+        baseUrl: availability.baseUrl,
+        wakeAttempted: availability.wakeAttempted,
+        wakeStarted: availability.wakeStarted,
+      });
+      return this.buildFallbackPlan(goal, snapshot.url);
+    }
+
     let model: LanguageModel;
     try {
       model = this.initializeModel();
@@ -504,31 +544,55 @@ export class ComputerUseManager {
       `Page text preview:\n${snapshot.textPreview || "No text extracted."}`,
     ].join("\n\n");
 
-    const result = await generateText({
-      model,
-      system:
-        "Produce valid JSON only. Do not include explanations before or after the JSON.",
-      prompt,
-      temperature: 0.2,
-      maxRetries: 2,
-    });
+    try {
+      const result = await generateText({
+        model,
+        system:
+          "Produce valid JSON only. Do not include explanations before or after the JSON.",
+        prompt,
+        temperature: 0.2,
+        maxRetries: 2,
+      });
+      const parsed = this.parseJson<{
+        summary?: string;
+        steps?: PlannedStep[];
+      }>(result.text);
 
-    const parsed = this.parseJson<{ summary?: string; steps?: PlannedStep[] }>(
-      result.text,
-    );
+      if (!parsed.steps?.length) {
+        return this.buildFallbackPlan(goal, snapshot.url);
+      }
 
-    if (!parsed.steps?.length) {
+      return {
+        summary: parsed.summary || "Live automation plan",
+        steps: parsed.steps.slice(0, 6).map((step) => this.normalizeStep(step)),
+      };
+    } catch (error) {
+      logger.warn("Computer use planning fell back to heuristics", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return this.buildFallbackPlan(goal, snapshot.url);
     }
-
-    return {
-      summary: parsed.summary || "Live automation plan",
-      steps: parsed.steps.slice(0, 6).map((step) => this.normalizeStep(step)),
-    };
   }
 
   private async buildScript(goal: string): Promise<string> {
     const snapshot = await this.getPageSnapshot();
+
+    const availability = await this.getOllamaAvailability();
+    if (availability) {
+      logger.warn("Ollama is unavailable for computer use scripting", {
+        baseUrl: availability.baseUrl,
+        wakeAttempted: availability.wakeAttempted,
+        wakeStarted: availability.wakeStarted,
+      });
+      return `// No LLM configured. Start with this scaffold.
+async function runBrowsoTask() {
+  const root = document.body;
+  console.log("Current page:", location.href);
+  console.log("Body text preview:", root?.innerText?.slice(0, 500));
+}
+
+runBrowsoTask();`;
+    }
 
     let model: LanguageModel;
     try {
@@ -544,20 +608,34 @@ async function runBrowsoTask() {
 runBrowsoTask();`;
     }
 
-    const result = await generateText({
-      model,
-      system: SCRIPT_PROMPT,
-      prompt: [
-        `User goal: ${goal}`,
-        `Current URL: ${snapshot.url ?? "unknown"}`,
-        `Current Title: ${snapshot.title ?? "unknown"}`,
-        `Page text preview:\n${snapshot.textPreview || "No text extracted."}`,
-      ].join("\n\n"),
-      temperature: 0.2,
-      maxRetries: 2,
-    });
+    try {
+      const result = await generateText({
+        model,
+        system: SCRIPT_PROMPT,
+        prompt: [
+          `User goal: ${goal}`,
+          `Current URL: ${snapshot.url ?? "unknown"}`,
+          `Current Title: ${snapshot.title ?? "unknown"}`,
+          `Page text preview:\n${snapshot.textPreview || "No text extracted."}`,
+        ].join("\n\n"),
+        temperature: 0.2,
+        maxRetries: 2,
+      });
 
-    return result.text.trim();
+      return result.text.trim();
+    } catch (error) {
+      logger.warn("Computer use script generation fell back to scaffold", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return `// No LLM configured. Start with this scaffold.
+async function runBrowsoTask() {
+  const root = document.body;
+  console.log("Current page:", location.href);
+  console.log("Body text preview:", root?.innerText?.slice(0, 500));
+}
+
+runBrowsoTask();`;
+    }
   }
 
   private async buildAgentReport(session: ComputerUseSession): Promise<string> {
@@ -567,6 +645,16 @@ runBrowsoTask();`;
       snapshot.url,
       session.steps,
     );
+
+    const availability = await this.getOllamaAvailability();
+    if (availability) {
+      logger.warn("Ollama is unavailable for computer use reporting", {
+        baseUrl: availability.baseUrl,
+        wakeAttempted: availability.wakeAttempted,
+        wakeStarted: availability.wakeStarted,
+      });
+      return fallback;
+    }
 
     let model: LanguageModel;
     try {
@@ -1130,6 +1218,36 @@ runBrowsoTask();`;
 
   private getErrorMessage(error: unknown): string {
     if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      const settings = this.settingsStore.getSettings();
+
+      if (settings.provider === "ollama") {
+        if (
+          message.includes("model not found") ||
+          message.includes("manifest unknown") ||
+          message.includes("no such model") ||
+          message.includes("pull the model") ||
+          message.includes("not found, try pulling")
+        ) {
+          return buildOllamaMissingModelMessage(settings.model);
+        }
+
+        if (
+          message.includes("connection refused") ||
+          message.includes("econnrefused") ||
+          message.includes("socket hang up") ||
+          message.includes("fetch") ||
+          message.includes("network") ||
+          message.includes("timeout")
+        ) {
+          return buildOllamaUnavailableMessage(
+            normalizeOllamaBaseUrl(settings.ollamaBaseUrl),
+            false,
+            false,
+          );
+        }
+      }
+
       return error.message;
     }
     return "Unknown error";

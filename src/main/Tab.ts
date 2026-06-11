@@ -4,6 +4,7 @@ import {
   BROWSO_AI_HASH_PREFIX,
   BROWSO_AI_REQUEST_URL,
   BROWSO_WELCOME_URL,
+  BROWSO_SETUP_COMPLETE_URL,
   buildWelcomePageHtml,
   isWelcomeUrl,
   parseWelcomeAIRequest,
@@ -49,6 +50,22 @@ export class Tab {
 
   private setupEventListeners(): void {
     this.webContentsView.webContents.on("will-navigate", (event, url) => {
+      if (url === BROWSO_SETUP_COMPLETE_URL) {
+        event.preventDefault();
+        void this.completeFirstRunSetup();
+        return;
+      }
+
+      if (
+        this.isSetupRequired() &&
+        !isWelcomeUrl(url) &&
+        !url.startsWith("data:")
+      ) {
+        event.preventDefault();
+        void this.loadURL(BROWSO_WELCOME_URL);
+        return;
+      }
+
       if (!url.startsWith(BROWSO_AI_REQUEST_URL)) {
         return;
       }
@@ -170,15 +187,21 @@ export class Tab {
   }
 
   loadURL(url: string): Promise<void> {
-    this._url = isWelcomeUrl(url) ? BROWSO_WELCOME_URL : url;
-    if (isWelcomeUrl(url)) {
-      const settings = AISettingsStore.getInstance().getSettings();
+    const settings = AISettingsStore.getInstance().getSettings();
+    const shouldShowWelcome = isWelcomeUrl(url) || this.isSetupRequired();
+
+    if (shouldShowWelcome) {
+      this._url = BROWSO_WELCOME_URL;
       return this.webContentsView.webContents.loadURL(
         `data:text/html;charset=UTF-8,${encodeURIComponent(
-          buildWelcomePageHtml(settings.searchEngine),
+          buildWelcomePageHtml(settings.searchEngine, {
+            setupMode: !settings.setupCompleted,
+          }),
         )}`,
       );
     }
+
+    this._url = url;
     return this.webContentsView.webContents.loadURL(url);
   }
 
@@ -211,11 +234,12 @@ export class Tab {
       return;
     }
 
+    const selector = this.isSetupRequired()
+      ? 'document.getElementById("setup-agree")?.focus({ preventScroll: true })'
+      : 'document.getElementById("search-input")?.focus({ preventScroll: true })';
     const focus = (): void => {
       this.webContentsView.webContents.focus();
-      void this.runJs(
-        'document.getElementById("search-input")?.focus({ preventScroll: true })',
-      ).catch(() => undefined);
+      void this.runJs(selector).catch(() => undefined);
     };
 
     if (this.webContentsView.webContents.isLoading()) {
@@ -223,5 +247,19 @@ export class Tab {
     } else {
       focus();
     }
+  }
+
+  private isSetupRequired(): boolean {
+    return !AISettingsStore.getInstance().getSettings().setupCompleted;
+  }
+
+  private async completeFirstRunSetup(): Promise<void> {
+    const store = AISettingsStore.getInstance();
+    if (!store.getSettings().setupCompleted) {
+      store.markSetupCompleted();
+    }
+
+    await this.loadURL(BROWSO_WELCOME_URL);
+    this.focusWelcomeSearch();
   }
 }

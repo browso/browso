@@ -47,5 +47,9 @@ test("release workflow publishes versioned updater artifacts", () => {
   assert.doesNotMatch(workflow, /gh release delete/);
   assert.doesNotMatch(workflow, /--prerelease/);
   assert.match(workflow, /browso-release-published/);
-  assert.match(workflow, /releases\.html#\$\{RELEASE_TAG\}/);
+  assert.match(workflow, /release-notes\.md/);
+  assert.match(workflow, /--notes-file/);
+  assert.match(workflow, /notesMarkdown/);
+  assert.match(workflow, /notesSections/);
+  assert.match(workflow, /notesSummary/);
 });

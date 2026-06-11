@@ -74,10 +74,11 @@ full runtime and data-flow design.
 Browso supports:
 
 - Ollama for local inference
+- Hugging Face Spaces for hosted inference
 - OpenAI
 - Anthropic
 
-The default configuration uses Ollama at `http://127.0.0.1:11434` with `gemma4:e2b`.
+The default configuration uses Ollama with the `gemma4:e2b` model.
 
 Cloud provider keys are read from `.env`:
 
@@ -93,7 +94,7 @@ Requirements:
 - Node.js 22 or later
 - npm
 - macOS, Linux, or Windows for development
-- Ollama or a configured cloud provider for AI responses
+- A running Ollama instance, a Browso Agent Hugging Face Space, or another configured cloud provider
 
 Install and start:
 
@@ -102,11 +103,8 @@ npm install
 npm run dev
 ```
 
-Install the default local model:
-
-```bash
-ollama pull gemma4:e2b
-```
+The default hosted model requires no local model download. To use a private
+Space, provide `HF_TOKEN` in `.env`.
 
 ## Commands
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isAllowedNavigationTarget } from "./navigationPolicy.ts";
 
-const providerSchema = z.enum(["ollama", "openai", "anthropic"]);
+const providerSchema = z.enum(["huggingface", "ollama", "openai", "anthropic"]);
 const searchEngineSchema = z.enum(["google", "duckduckgo", "bing"]);
 const navigationTargetSchema = z
   .string()
@@ -116,6 +116,7 @@ export const ipcSchemas = {
       provider: providerSchema.optional(),
       model: z.string().trim().min(1).max(200).optional(),
       ollamaBaseUrl: z.string().trim().min(1).max(500).optional(),
+      huggingFaceBaseUrl: z.string().url().max(500).optional(),
       homepage: navigationTargetSchema.optional(),
       searchEngine: searchEngineSchema.optional(),
       autoRouteToSandbox: z.boolean().optional(),

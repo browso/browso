@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildReleaseNotes,
   nextReleaseVersion,
   normalizeStableVersion,
   parseReleaseType,
@@ -63,6 +64,37 @@ test("website release notes omit release and merge bookkeeping", () => {
       "minor update: release bookkeeping",
       "Fix updater metadata",
     ]),
-    ["Improve tab recovery", "Fix updater metadata"],
+    ["Fix Updater Metadata", "Improve Tab Recovery"],
   );
+});
+
+test("release notes are grouped into simple sections with markdown", () => {
+  const bundle = buildReleaseNotes([
+    "first-run setup requires agreement",
+    "fix updater metadata",
+    "add keyboard shortcuts",
+    "deps: bump typescript",
+    "Merge pull request #88",
+  ]);
+
+  assert.deepEqual(bundle.notesSections.map((section) => section.title), [
+    "Important changes",
+    "Fixes",
+    "Improvements",
+    "Maintenance",
+  ]);
+  assert.deepEqual(bundle.notes, [
+    "First-Run Setup Requires Agreement",
+    "Fix Updater Metadata",
+    "Add Keyboard Shortcuts",
+    "Dependencies: Bump TypeScript",
+  ]);
+  assert.match(
+    bundle.notesMarkdown,
+    /The most important user-facing changes are listed first\./,
+  );
+  assert.match(bundle.notesMarkdown, /## Important changes/);
+  assert.match(bundle.notesMarkdown, /## Fixes/);
+  assert.match(bundle.notesMarkdown, /## Improvements/);
+  assert.match(bundle.notesMarkdown, /## Maintenance/);
 });

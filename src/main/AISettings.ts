@@ -7,22 +7,25 @@ import {
 } from "./WelcomePage.ts";
 import { normalizeHomepage } from "./navigationPolicy.ts";
 
-export type LLMProvider = "ollama" | "openai" | "anthropic";
+export type LLMProvider = "huggingface" | "ollama" | "openai" | "anthropic";
 export type SearchEngine = "google" | "duckduckgo" | "bing";
 
 export interface AISettings {
   provider: LLMProvider;
   model: string;
   ollamaBaseUrl: string;
+  huggingFaceBaseUrl: string;
   homepage: string;
   searchEngine: SearchEngine;
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
   historyAccessEnabled: boolean;
+  setupCompleted: boolean;
 }
 
 const DEFAULTS: Record<LLMProvider, { model: string }> = {
+  huggingface: { model: "browso/browso-agent" },
   ollama: { model: "gemma4:e2b" },
   openai: { model: "gpt-4o-mini" },
   anthropic: { model: "claude-3-5-sonnet-20241022" },
@@ -35,6 +38,7 @@ const DEFAULT_HOMEPAGE = BROWSO_WELCOME_URL;
 const DEFAULT_SEARCH_ENGINE: SearchEngine = "duckduckgo";
 const DEFAULT_SIDEBAR_WIDTH = 400;
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
+const DEFAULT_HUGGING_FACE_BASE_URL = "https://browso-browso-agent.hf.space";
 const DEFAULT_MEMORY_ENABLED = true;
 const DEFAULT_HISTORY_ACCESS_ENABLED = true;
 const { app } = electron;
@@ -76,6 +80,11 @@ export class AISettingsStore {
           this.settings.ollamaBaseUrl ??
           DEFAULT_OLLAMA_BASE_URL,
       ),
+      huggingFaceBaseUrl: this.normalizeHuggingFaceBaseUrl(
+        input.huggingFaceBaseUrl ??
+          this.settings.huggingFaceBaseUrl ??
+          DEFAULT_HUGGING_FACE_BASE_URL,
+      ),
       homepage: normalizeHomepage(
         input.homepage,
         normalizeHomepage(this.settings.homepage, DEFAULT_HOMEPAGE),
@@ -99,6 +108,8 @@ export class AISettingsStore {
         input.historyAccessEnabled ??
         this.settings.historyAccessEnabled ??
         DEFAULT_HISTORY_ACCESS_ENABLED,
+      setupCompleted:
+        input.setupCompleted ?? this.settings.setupCompleted ?? true,
     };
 
     if (input.provider && !input.model) {
@@ -115,8 +126,8 @@ export class AISettingsStore {
     try {
       const raw = readFileSync(this.filePath, "utf8");
       const parsed = JSON.parse(raw) as Partial<AISettings>;
-      const parsedProvider =
-        this.parseProvider(parsed.provider) ?? fallback.provider;
+      const parsedProvider = this.parseProvider(parsed.provider);
+      const provider = parsedProvider ?? fallback.provider;
       const parsedSearchEngine =
         this.parseSearchEngine(parsed.searchEngine) ?? fallback.searchEngine;
       const parsedHomepage = normalizeHomepage(
@@ -130,17 +141,22 @@ export class AISettingsStore {
       const shouldMigrateLegacyBrand =
         parsedHomepage === LEGACY_BLUEBERRY_WELCOME_URL;
       const shouldMigrateLegacyOllamaModel =
-        parsedProvider === "ollama" &&
-        (parsedModel.length === 0 ||
-          parsedModel === LEGACY_OLLAMA_DEFAULT_MODEL);
+        provider === "ollama" && parsedModel === LEGACY_OLLAMA_DEFAULT_MODEL;
+      const parsedSetupCompleted =
+        typeof parsed.setupCompleted === "boolean"
+          ? parsed.setupCompleted
+          : true;
 
       return {
-        provider: parsedProvider,
+        provider,
         model: shouldMigrateLegacyOllamaModel
           ? DEFAULTS.ollama.model
-          : parsedModel || fallback.model,
+          : parsedModel || DEFAULTS[provider].model,
         ollamaBaseUrl: this.normalizeOllamaBaseUrl(
           parsed.ollamaBaseUrl ?? fallback.ollamaBaseUrl,
+        ),
+        huggingFaceBaseUrl: this.normalizeHuggingFaceBaseUrl(
+          parsed.huggingFaceBaseUrl ?? fallback.huggingFaceBaseUrl,
         ),
         homepage:
           shouldMigrateLegacyDefaults || shouldMigrateLegacyBrand
@@ -164,6 +180,7 @@ export class AISettingsStore {
           typeof parsed.historyAccessEnabled === "boolean"
             ? parsed.historyAccessEnabled
             : fallback.historyAccessEnabled,
+        setupCompleted: parsedSetupCompleted,
       };
     } catch {
       return fallback;
@@ -188,6 +205,9 @@ export class AISettingsStore {
       ollamaBaseUrl: this.normalizeOllamaBaseUrl(
         process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL,
       ),
+      huggingFaceBaseUrl: this.normalizeHuggingFaceBaseUrl(
+        process.env.HUGGING_FACE_BASE_URL ?? DEFAULT_HUGGING_FACE_BASE_URL,
+      ),
       homepage: normalizeHomepage(
         process.env.BROWSER_HOMEPAGE,
         DEFAULT_HOMEPAGE,
@@ -199,11 +219,30 @@ export class AISettingsStore {
       sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
       memoryEnabled: DEFAULT_MEMORY_ENABLED,
       historyAccessEnabled: DEFAULT_HISTORY_ACCESS_ENABLED,
+      setupCompleted: false,
     };
   }
 
+  markSetupCompleted(): AISettings {
+    if (this.settings.setupCompleted) {
+      return this.getSettings();
+    }
+
+    this.settings = {
+      ...this.settings,
+      setupCompleted: true,
+    };
+    this.persist();
+    return this.getSettings();
+  }
+
   private parseProvider(value: string | undefined): LLMProvider | null {
-    if (value === "openai" || value === "anthropic" || value === "ollama") {
+    if (
+      value === "huggingface" ||
+      value === "openai" ||
+      value === "anthropic" ||
+      value === "ollama"
+    ) {
       return value;
     }
     return null;
@@ -224,5 +263,11 @@ export class AISettingsStore {
     const trimmed = value.trim();
     const normalized = trimmed.replace(/\/(?:v1|api)\/?$/, "");
     return normalized || DEFAULT_OLLAMA_BASE_URL;
+  }
+
+  private normalizeHuggingFaceBaseUrl(value: string): string {
+    const trimmed = value.trim();
+    const normalized = trimmed.replace(/\/v1\/?$/, "").replace(/\/+$/, "");
+    return normalized || DEFAULT_HUGGING_FACE_BASE_URL;
   }
 }

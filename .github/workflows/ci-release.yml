@@ -723,6 +723,10 @@ jobs:
             ! -name '*.yml' ! -name '*.blockmap' ! -name 'SHA256SUMS.txt' \
             -print0 | sort -z | xargs -0 sha256sum > release-assets/SHA256SUMS.txt
 
+      - name: Prepare release notes
+        run: |
+          jq -r '.notesMarkdown' release-plan/release-plan.json > "$RUNNER_TEMP/release-notes.md"
+
       - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -734,7 +738,7 @@ jobs:
               release-assets/* \
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TAG" \
-              --notes "Release notes and downloads: https://browso.org/releases.html#${RELEASE_TAG}"
+              --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
 
       - name: Publish release metadata to website
@@ -761,6 +765,9 @@ jobs:
                   publishedAt: $published_at,
                   commit: $commit,
                   notes: $plan[0].notes,
+                  notesSections: $plan[0].notesSections,
+                  notesSummary: $plan[0].notesSummary,
+                  notesMarkdown: $plan[0].notesMarkdown,
                   releaseUrl: ("https://github.com/browso/browso/releases/tag/" + $plan[0].tag),
                   assets: {
                     macAppleSilicon: ("https://github.com/browso/browso/releases/download/" + $plan[0].tag + "/browso-mac-apple-silicon.dmg"),

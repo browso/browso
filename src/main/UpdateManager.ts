@@ -9,6 +9,13 @@ import type { Window } from "./Window.ts";
 
 const RELEASES_URL = "https://github.com/Browso/browso/releases";
 
+export interface UpdateReleaseNote {
+  version: string;
+  note: string | null;
+}
+
+export type UpdateReleaseNotes = string | Array<UpdateReleaseNote> | null;
+
 export type UpdateStatus =
   | "idle"
   | "checking"
@@ -30,6 +37,7 @@ export interface UpdateState {
   latestVersion: string | null;
   releaseUrl: string | null;
   releaseName: string | null;
+  releaseNotes: UpdateReleaseNotes;
   publishedAt: string | null;
   checkedAt: number | null;
   error: string | null;
@@ -60,6 +68,7 @@ export class UpdateManager {
       latestVersion: null,
       releaseUrl: null,
       releaseName: null,
+      releaseNotes: null,
       publishedAt: null,
       checkedAt: null,
       error: null,
@@ -224,14 +233,19 @@ export class UpdateManager {
       });
     });
 
-    this.updater.on("update-not-available", (info) => {
-      this.applyUpdateInfo(info, {
+    this.updater.on("update-not-available", () => {
+      this.setState({
         status: "idle",
         checking: false,
         hasUpdate: false,
         dismissed: false,
         downloadPercent: null,
         checkedAt: Date.now(),
+        latestVersion: null,
+        releaseUrl: null,
+        releaseName: null,
+        releaseNotes: null,
+        publishedAt: null,
         error: null,
       });
     });
@@ -309,7 +323,16 @@ export class UpdateManager {
   }
 
   private async maybePromptForRestart(): Promise<void> {
-    if (this.restartPromptShown || !this.mainWindow) {
+    if (!this.mainWindow) {
+      return;
+    }
+
+    if (this.mainWindow.browserSettings.getIsVisible()) {
+      this.mainWindow.browserSettings.show();
+      return;
+    }
+
+    if (this.restartPromptShown) {
       return;
     }
 
@@ -318,18 +341,23 @@ export class UpdateManager {
       this.mainWindow.baseWindow,
       {
         type: "info",
-        buttons: ["Restart and Install", "Later"],
-        defaultId: 0,
-        cancelId: 1,
+        buttons: ["View What's New", "Restart and Install", "Later"],
+        defaultId: 1,
+        cancelId: 2,
         title: "Update Ready",
-        message: `Browso ${this.state.latestVersion} is ready to install.`,
+        message: `Browso ${this.state.latestVersion} has been downloaded.`,
         detail:
-          "Restart now to replace the installed application while keeping your settings and data.",
+          "Review what changed in Settings, or restart now to install the update.",
         noLink: true,
       },
     );
 
     if (response === 0) {
+      this.mainWindow.browserSettings.show();
+      return;
+    }
+
+    if (response === 1) {
       this.installUpdate();
     }
   }
@@ -339,6 +367,7 @@ export class UpdateManager {
       latestVersion: info.version,
       releaseUrl: this.getReleaseUrl(info.version),
       releaseName: info.releaseName || `v${info.version}`,
+      releaseNotes: normalizeReleaseNotes(info.releaseNotes),
       publishedAt: info.releaseDate || null,
       ...patch,
     });
@@ -353,6 +382,7 @@ export class UpdateManager {
       checking: false,
       downloadPercent: null,
       checkedAt: Date.now(),
+      releaseNotes: null,
       error: `${message} You can still update from the release page.`,
     });
   }
@@ -395,4 +425,30 @@ export class UpdateManager {
   private getReleaseUrl(version: string): string {
     return `https://github.com/Browso/browso/releases/tag/v${version}`;
   }
+}
+
+function normalizeReleaseNotes(
+  notes: UpdateInfo["releaseNotes"],
+): UpdateReleaseNotes {
+  if (notes == null) {
+    return null;
+  }
+
+  if (typeof notes === "string") {
+    const trimmed = notes.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (notes.length === 0) {
+    return null;
+  }
+
+  return notes.map((note) => {
+    const trimmedNote = note.note?.trim() ?? "";
+
+    return {
+      version: note.version,
+      note: trimmedNote.length > 0 ? trimmedNote : null,
+    };
+  });
 }

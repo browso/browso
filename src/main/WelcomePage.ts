@@ -6,6 +6,7 @@ export const BROWSO_WELCOME_URL = "browso://welcome";
 export const LEGACY_BLUEBERRY_WELCOME_URL = "blueberry://welcome";
 export const BROWSO_AI_HASH_PREFIX = "#browso-ai=";
 export const BROWSO_AI_REQUEST_URL = "browso://ai-request";
+export const BROWSO_SETUP_COMPLETE_URL = "browso://setup-complete";
 const BROWSO_LOGO_DATA_URL = `data:image/png;base64,${readFileSync(APP_ICON_PATH).toString("base64")}`;
 
 export const isWelcomeUrl = (url: string): boolean =>
@@ -39,9 +40,416 @@ const searchAction = (searchEngine: SearchEngine): string => {
   }
 };
 
+const searchEngineLabel = (searchEngine: SearchEngine): string => {
+  switch (searchEngine) {
+    case "bing":
+      return "Bing";
+    case "google":
+      return "Google";
+    case "duckduckgo":
+    default:
+      return "DuckDuckGo";
+  }
+};
+
+const buildSetupPageHtml = (searchEngine: SearchEngine): string => {
+  const engineLabel = searchEngineLabel(searchEngine);
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+    <title>Set up Browso</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --background: #f7f8fc;
+        --surface: rgba(255, 255, 255, 0.92);
+        --surface-strong: #ffffff;
+        --foreground: #171717;
+        --muted: #6b7280;
+        --secondary: #eef2ff;
+        --border: rgba(148, 163, 184, 0.22);
+        --primary: #1f2937;
+        --primary-foreground: #ffffff;
+        --accent: #2563eb;
+        --shadow: 0 30px 80px rgba(15, 23, 42, 0.12);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0b1020;
+          --surface: rgba(16, 23, 42, 0.88);
+          --surface-strong: #111827;
+          --foreground: #f8fafc;
+          --muted: #94a3b8;
+          --secondary: rgba(37, 99, 235, 0.16);
+          --border: rgba(148, 163, 184, 0.18);
+          --primary: #f8fafc;
+          --primary-foreground: #0f172a;
+          --accent: #60a5fa;
+          --shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: auto;
+        color: var(--foreground);
+        background:
+          radial-gradient(circle at top left, rgba(96, 165, 250, 0.25), transparent 30%),
+          radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.12), transparent 28%),
+          var(--background);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+          "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .panel {
+        width: min(760px, 100%);
+        display: grid;
+        gap: 20px;
+      }
+      .hero {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .logo {
+        width: 62px;
+        height: 62px;
+        display: block;
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 10px;
+        padding: 7px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 48px);
+        line-height: 1;
+        letter-spacing: -0.05em;
+      }
+      .hero p {
+        margin: 10px 0 0;
+        max-width: 58ch;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      .card {
+        display: grid;
+        gap: 18px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        padding: 24px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+      .card h2 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      .checklist {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .checklist li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface-strong);
+      }
+      .bullet {
+        width: 22px;
+        height: 22px;
+        flex: 0 0 22px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--secondary);
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .check-copy {
+        min-width: 0;
+      }
+      .check-copy strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      .agreement {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface-strong);
+      }
+      .agreement input {
+        margin-top: 2px;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+        accent-color: var(--accent);
+      }
+      .agreement-copy {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+      .agreement-copy strong {
+        font-size: 14px;
+      }
+      .agreement-copy span {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .button {
+        height: 44px;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 18px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .button.primary {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+      .button.primary:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+      .link {
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .fineprint {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      @media (max-width: 620px) {
+        main {
+          padding: 16px;
+        }
+        .card,
+        .hero {
+          padding-inline: 0;
+        }
+        .hero {
+          align-items: flex-start;
+        }
+        .logo {
+          width: 56px;
+          height: 56px;
+        }
+        .actions {
+          align-items: stretch;
+        }
+        .links {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel" aria-labelledby="setup-title">
+        <div class="hero">
+          <img class="logo" src="${BROWSO_LOGO_DATA_URL}" alt="Browso logo" />
+          <div>
+            <p class="eyebrow">First-time setup</p>
+            <h1 id="setup-title">Welcome to Browso</h1>
+            <p>
+              Before you start browsing, confirm the setup agreement and review the
+              basics for a normal user. Your default search engine will be ${engineLabel}.
+            </p>
+          </div>
+        </div>
+
+        <section class="card" aria-labelledby="agreement-title">
+          <div>
+            <h2 id="agreement-title">Agreement and setup terms</h2>
+            <p>
+              Browso keeps browsing data on this device and can send prompts to the
+              AI provider you choose in Settings. Continue only if that matches how
+              you want to use the app.
+            </p>
+          </div>
+
+          <ul class="checklist" aria-label="Setup summary">
+            <li>
+              <span class="bullet">1</span>
+              <div class="check-copy">
+                <strong>Local control</strong>
+                <span>Your tabs, history, and settings stay on this machine.</span>
+              </div>
+            </li>
+            <li>
+              <span class="bullet">2</span>
+              <div class="check-copy">
+                <strong>AI is optional</strong>
+                <span>You can change or disable AI providers later in Settings.</span>
+              </div>
+            </li>
+            <li>
+              <span class="bullet">3</span>
+              <div class="check-copy">
+                <strong>Web browsing is your responsibility</strong>
+                <span>
+                  Browso can open websites and automate page actions at your request.
+                </span>
+              </div>
+            </li>
+          </ul>
+
+          <label class="agreement" for="setup-agree">
+            <input id="setup-agree" type="checkbox" />
+            <span class="agreement-copy">
+              <strong>I agree and want to continue</strong>
+              <span>
+                I understand the setup notes above and want to finish first-time
+                setup.
+              </span>
+            </span>
+          </label>
+
+          <div class="actions">
+            <div class="links">
+              <a
+                class="link"
+                href="https://github.com/Browso/browso/blob/main/LICENSE"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View license
+              </a>
+              <a
+                class="link"
+                href="https://github.com/Browso/browso/blob/main/SECURITY.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Security notes
+              </a>
+            </div>
+            <button id="setup-continue" class="button primary" type="button" disabled>
+              Agree and continue
+            </button>
+          </div>
+
+          <p class="fineprint">
+            You can change your homepage, search engine, and AI provider later in
+            Settings without rerunning setup.
+          </p>
+        </section>
+      </section>
+    </main>
+    <script>
+      const agree = document.getElementById("setup-agree");
+      const continueButton = document.getElementById("setup-continue");
+      const startSetup = () => {
+        if (!agree.checked) return;
+        location.href = "${BROWSO_SETUP_COMPLETE_URL}";
+      };
+      const syncButton = () => {
+        continueButton.disabled = !agree.checked;
+      };
+      agree.addEventListener("change", syncButton);
+      continueButton.addEventListener("click", startSetup);
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && agree.checked) {
+          event.preventDefault();
+          startSetup();
+        }
+      });
+      syncButton();
+      agree.focus();
+    </script>
+  </body>
+</html>`;
+};
+
+export interface WelcomePageOptions {
+  setupMode?: boolean;
+}
+
 export const buildWelcomePageHtml = (
   searchEngine: SearchEngine,
-): string => `<!doctype html>
+  options: WelcomePageOptions = {},
+): string => {
+  if (options.setupMode) {
+    return buildSetupPageHtml(searchEngine);
+  }
+
+  return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -594,3 +1002,4 @@ export const buildWelcomePageHtml = (
     </script>
   </body>
 </html>`;
+};

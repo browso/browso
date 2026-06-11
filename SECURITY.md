@@ -41,7 +41,7 @@ Please include the following information to help us understand and address the v
 
 - **API Keys**: Browso stores cloud provider keys (OpenAI, Anthropic) locally in `.env` and does not transmit them to remote pages
 - **Browsing Privacy**: Only pages you explicitly save are stored in your local knowledge base
-- **Network**: Page content sent to OpenAI or Anthropic leaves your device; use Ollama for local-only workflows
+- **Network**: Page content sent to Hugging Face, OpenAI, or Anthropic leaves your device; use Ollama for local-only workflows
 - **Automation Safety**: Browso blocks sensitive actions like CAPTCHA bypass, phishing exploitation, and unauthorized purchases
 
 ### For Developers
@@ -87,7 +87,7 @@ This security policy covers vulnerabilities in:
 The following are out of scope for this security policy:
 
 - Third-party dependencies with their own security policies
-- User-configured cloud provider security (OpenAI, Anthropic, Ollama)
+- User-configured provider security (Hugging Face, OpenAI, Anthropic, Ollama)
 - Operating system or Electron framework vulnerabilities
 - Remote webpages accessed in the browser
 

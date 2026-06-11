@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@common/components/Button";
 import { useDarkMode } from "@common/hooks/useDarkMode";
 import { cn } from "@common/lib/utils";
+import { UpdatePresenter } from "./components/UpdatePresenter";
 import {
   BookOpen,
   Bot,
@@ -141,10 +142,12 @@ export const SettingsApp: React.FC = () => {
   );
   const [dataActionStatus, setDataActionStatus] = useState<string | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState | null>(null);
+  const [updatePresenterOpen, setUpdatePresenterOpen] = useState(false);
   const [ollamaState, setOllamaState] = useState<{
     loading: boolean;
     error: string | null;
   }>({ loading: false, error: null });
+  const lastPresentedUpdateVersion = useRef<string | null>(null);
   const { isDarkMode, setDarkMode } = useDarkMode();
 
   useEffect(() => {
@@ -199,7 +202,7 @@ export const SettingsApp: React.FC = () => {
   const loadOllamaModels = async (): Promise<OllamaModelsResult> => {
     setOllamaState({ loading: true, error: null });
     const result = await window.settingsAPI.listOllamaModels();
-    setOllamaModels(result.models);
+    setOllamaModels(result.ok ? result.models : []);
     setOllamaState({
       loading: false,
       error: result.ok ? null : result.error,
@@ -285,6 +288,22 @@ export const SettingsApp: React.FC = () => {
   }, [settings?.provider, settings?.ollamaBaseUrl]);
 
   useEffect(() => {
+    if (updateState?.status !== "downloaded" || !updateState.latestVersion) {
+      if (updateState?.status !== "downloaded") {
+        setUpdatePresenterOpen(false);
+      }
+      return;
+    }
+
+    if (lastPresentedUpdateVersion.current === updateState.latestVersion) {
+      return;
+    }
+
+    lastPresentedUpdateVersion.current = updateState.latestVersion;
+    setUpdatePresenterOpen(true);
+  }, [updateState?.status, updateState?.latestVersion]);
+
+  useEffect(() => {
     if (!settings || !settings.model.trim()) {
       return;
     }
@@ -316,7 +335,7 @@ export const SettingsApp: React.FC = () => {
       case "checking":
         return "Checking for updates...";
       case "available":
-        return `Version ${updateState.latestVersion} is available`;
+        return `Version ${updateState.latestVersion} is available to download`;
       case "downloading":
         return `Downloading update${
           updateState.downloadPercent === null
@@ -324,7 +343,7 @@ export const SettingsApp: React.FC = () => {
             : `: ${Math.round(updateState.downloadPercent)}%`
         }`;
       case "downloaded":
-        return `Version ${updateState.latestVersion} is ready to install`;
+        return `Version ${updateState.latestVersion} has been downloaded and is ready to install`;
       case "installing":
         return "Restarting to install the update...";
       case "unsupported":
@@ -335,9 +354,28 @@ export const SettingsApp: React.FC = () => {
         return "You are on the latest known version";
     }
   })();
+  const selectedOllamaModel =
+    settings.provider === "ollama" ? settings.model.trim() : "";
+  const selectedOllamaModelInstalled =
+    selectedOllamaModel.length === 0 ||
+    ollamaModels.includes(selectedOllamaModel);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
+      <UpdatePresenter
+        open={updatePresenterOpen}
+        latestVersion={updateState?.latestVersion ?? null}
+        releaseName={updateState?.releaseName ?? null}
+        releaseNotes={updateState?.releaseNotes ?? null}
+        onClose={() => setUpdatePresenterOpen(false)}
+        onInstall={() => {
+          setUpdatePresenterOpen(false);
+          void window.settingsAPI.installUpdate().then(setUpdateState);
+        }}
+        onOpenReleasePage={() => {
+          void window.settingsAPI.openReleasePage();
+        }}
+      />
       <header
         aria-hidden="true"
         className="app-region-drag h-10 shrink-0 border-b border-border/70"
@@ -478,17 +516,27 @@ export const SettingsApp: React.FC = () => {
                         </div>
                       )}
                       {updateState?.status === "downloaded" && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() =>
-                            void window.settingsAPI
-                              .installUpdate()
-                              .then(setUpdateState)
-                          }
-                        >
-                          Restart and Install
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setUpdatePresenterOpen(true)}
+                          >
+                            What&apos;s New
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              setUpdatePresenterOpen(false);
+                              void window.settingsAPI
+                                .installUpdate()
+                                .then(setUpdateState);
+                            }}
+                          >
+                            Restart and Install
+                          </Button>
+                        </div>
                       )}
                       {(updateState?.status === "unsupported" ||
                         updateState?.status === "error") && (
@@ -515,7 +563,10 @@ export const SettingsApp: React.FC = () => {
                     )}
                     {updateState?.releaseName && (
                       <p className="mt-3 text-xs text-muted-foreground">
-                        Latest release: {updateState.releaseName}
+                        {updateState.status === "downloaded"
+                          ? "Downloaded release"
+                          : "Latest release"}
+                        : {updateState.releaseName}
                       </p>
                     )}
                     {updateState?.publishedAt && (
@@ -1185,12 +1236,53 @@ export const SettingsApp: React.FC = () => {
                       }
                       className="w-full rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-foreground/30"
                     >
+                      <option value="huggingface">Hugging Face Space</option>
                       <option value="ollama">Ollama (Local)</option>
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
                     </select>
                   </div>
                 </section>
+
+                {settings.provider === "huggingface" && (
+                  <section className={cardClassName}>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Hugging Face Space
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Connect Browso to the hosted browso-agent endpoint.
+                    </p>
+
+                    <div className="mt-4">
+                      <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                        Space URL
+                      </label>
+                      <input
+                        value={settings.huggingFaceBaseUrl}
+                        onChange={(event) =>
+                          setSettings({
+                            ...settings,
+                            huggingFaceBaseUrl: event.target.value,
+                          })
+                        }
+                        onBlur={(event) =>
+                          void updateSettings({
+                            huggingFaceBaseUrl: event.target.value,
+                          })
+                        }
+                        className="w-full rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-foreground/30"
+                        placeholder="https://browso-browso-agent.hf.space"
+                      />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Private Spaces require{" "}
+                        <code className="rounded bg-secondary px-1 py-0.5">
+                          HF_TOKEN
+                        </code>{" "}
+                        in the app environment.
+                      </p>
+                    </div>
+                  </section>
+                )}
 
                 {settings.provider === "ollama" ? (
                   <>
@@ -1260,10 +1352,36 @@ export const SettingsApp: React.FC = () => {
                           ))}
                         </select>
                         {ollamaState.error && (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {ollamaState.error}
-                          </p>
+                          <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3">
+                            <p className="text-xs leading-5 text-foreground/80">
+                              {ollamaState.error}
+                            </p>
+                            <div className="mt-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void loadOllamaModels()}
+                                disabled={ollamaState.loading}
+                              >
+                                Try to wake Ollama
+                              </Button>
+                            </div>
+                          </div>
                         )}
+                        {settings.provider === "ollama" &&
+                          !ollamaState.error &&
+                          !ollamaState.loading &&
+                          selectedOllamaModel &&
+                          !selectedOllamaModelInstalled && (
+                            <p className="mt-2 text-xs leading-5 text-amber-600 dark:text-amber-400">
+                              The selected model "{selectedOllamaModel}" is not
+                              installed. Pull it with{" "}
+                              <code className="rounded bg-secondary px-1 py-0.5">
+                                ollama pull {selectedOllamaModel}
+                              </code>{" "}
+                              or choose an installed model below.
+                            </p>
+                          )}
                         <p className="mt-2 text-xs text-muted-foreground">
                           Run{" "}
                           <code className="rounded bg-secondary px-1 py-0.5">
@@ -1297,15 +1415,19 @@ export const SettingsApp: React.FC = () => {
                         }
                         className="w-full rounded-2xl border border-border bg-background/90 px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-foreground/30"
                         placeholder={
-                          settings.provider === "openai"
-                            ? "gpt-4o-mini"
-                            : "claude-3-5-sonnet-20241022"
+                          settings.provider === "huggingface"
+                            ? "browso/browso-agent"
+                            : settings.provider === "openai"
+                              ? "gpt-4o-mini"
+                              : "claude-3-5-sonnet-20241022"
                         }
                       />
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {settings.provider === "openai"
-                          ? "Requires OPENAI_API_KEY in the .env file."
-                          : "Requires ANTHROPIC_API_KEY in the .env file."}
+                        {settings.provider === "huggingface"
+                          ? "The model served by the configured Hugging Face Space."
+                          : settings.provider === "openai"
+                            ? "Requires OPENAI_API_KEY in the .env file."
+                            : "Requires ANTHROPIC_API_KEY in the .env file."}
                       </p>
                     </div>
                   </section>

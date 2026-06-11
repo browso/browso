@@ -20,6 +20,12 @@ import type { Tab } from "./Tab.ts";
 import { BrowserContextService } from "./BrowserContextService.ts";
 import { KnowledgeStore } from "./KnowledgeStore.ts";
 import {
+  buildOllamaMissingModelMessage,
+  buildOllamaUnavailableMessage,
+  ensureOllamaAvailable,
+  normalizeOllamaBaseUrl,
+} from "./ollamaSupport.ts";
+import {
   AgentModeRegistry,
   routeAgentMode,
   type AgentMode,
@@ -197,6 +203,10 @@ export class LLMClient {
 
       if (this.shouldUseBrowserAutomation(request.message)) {
         await this.handleBrowserAutomationRequest(request);
+        return;
+      }
+
+      if (!(await this.ensureModelProviderReady(request.messageId))) {
         return;
       }
 
@@ -1126,6 +1136,7 @@ export class LLMClient {
     }
 
     const message = error.message.toLowerCase();
+    const settings = this.settingsStore.getSettings();
 
     if (message.includes("401") || message.includes("unauthorized")) {
       return "Authentication error: Please check your API key in the .env file.";
@@ -1133,6 +1144,33 @@ export class LLMClient {
 
     if (message.includes("429") || message.includes("rate limit")) {
       return "Rate limit exceeded. Please try again in a few moments.";
+    }
+
+    if (settings.provider === "ollama") {
+      if (
+        message.includes("model not found") ||
+        message.includes("manifest unknown") ||
+        message.includes("no such model") ||
+        message.includes("pull the model") ||
+        message.includes("not found, try pulling")
+      ) {
+        return buildOllamaMissingModelMessage(settings.model);
+      }
+
+      if (
+        message.includes("connection refused") ||
+        message.includes("econnrefused") ||
+        message.includes("socket hang up") ||
+        message.includes("fetch") ||
+        message.includes("network") ||
+        message.includes("timeout")
+      ) {
+        return buildOllamaUnavailableMessage(
+          normalizeOllamaBaseUrl(settings.ollamaBaseUrl),
+          false,
+          false,
+        );
+      }
     }
 
     if (
@@ -1182,6 +1220,28 @@ export class LLMClient {
     this.archivedConversationSummary = compacted.archivedSummary;
   }
 
+  private async ensureModelProviderReady(messageId: string): Promise<boolean> {
+    const settings = this.settingsStore.getSettings();
+    if (settings.provider !== "ollama") {
+      return true;
+    }
+
+    const availability = await ensureOllamaAvailable(settings.ollamaBaseUrl, {
+      attemptWake: true,
+    });
+    if (availability.available) {
+      return true;
+    }
+
+    logger.warn("Ollama is unavailable for chat", {
+      baseUrl: availability.baseUrl,
+      wakeAttempted: availability.wakeAttempted,
+      wakeStarted: availability.wakeStarted,
+    });
+    this.sendErrorMessage(messageId, availability.message);
+    return false;
+  }
+
   private initializeModel(): LanguageModel | null {
     const settings = this.settingsStore.getSettings();
 
@@ -1200,6 +1260,12 @@ export class LLMClient {
           apiKey: process.env.OPENAI_API_KEY,
         })(settings.model);
       }
+      case "huggingface":
+        return createOpenAI({
+          apiKey: process.env.HF_TOKEN || "public-space",
+          baseURL: `${settings.huggingFaceBaseUrl}/v1`,
+          name: "huggingface",
+        })(settings.model);
       case "ollama":
         return createOllama({
           baseURL: settings.ollamaBaseUrl,

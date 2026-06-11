@@ -169,7 +169,12 @@ for (const description of ["A".repeat(501), null, 42]) {
   });
 }
 
-for (const provider of ["ollama", "openai", "anthropic"] as const) {
+for (const provider of [
+  "huggingface",
+  "ollama",
+  "openai",
+  "anthropic",
+] as const) {
   test(`settings schema accepts provider ${provider}`, () => {
     assert.equal(
       ipcSchemas.settingsPatch.parse({ provider }).provider,
@@ -268,6 +273,20 @@ for (const engine of ["google", "duckduckgo", "bing"] as const) {
     assert.doesNotMatch(html, /Blueberry Browser/i);
   });
 }
+
+test("welcome HTML renders a required setup agreement on first run", () => {
+  const html = buildWelcomePageHtml("duckduckgo", { setupMode: true });
+
+  assert.match(html, /First-time setup/);
+  assert.match(html, /Agreement and setup terms/);
+  assert.match(html, /I agree and want to continue/);
+  assert.match(html, /setup-complete/);
+  assert.match(html, /View license/);
+  assert.match(html, /Security notes/);
+  assert.match(html, /default search engine will be DuckDuckGo/i);
+  assert.doesNotMatch(html, /id="search-input"/);
+  assert.doesNotMatch(html, /Prompt sent to Browso AI/);
+});
 
 for (const url of [BROWSO_WELCOME_URL, LEGACY_BLUEBERRY_WELCOME_URL]) {
   test(`isWelcomeUrl accepts compatible URL ${url}`, () => {

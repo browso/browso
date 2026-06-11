@@ -8,6 +8,10 @@ import { ipcSchemas, parseIpcInput } from "./ipcSchemas.ts";
 import { BrowserContextService } from "./BrowserContextService.ts";
 import { KnowledgeStore } from "./KnowledgeStore.ts";
 import {
+  ensureOllamaAvailable,
+  normalizeOllamaBaseUrl,
+} from "./ollamaSupport.ts";
+import {
   ProfileContextStore,
   type ProfileContextState,
 } from "./ProfileContextStore.ts";
@@ -876,13 +880,18 @@ export class EventManager {
     ipcMain.handle("ollama-models-list", async () => {
       this.logChannel("ollama-models-list");
       const settings = this.settingsStore.getSettings();
-      const baseUrl = (
-        settings.ollamaBaseUrl || "http://127.0.0.1:11434"
-      ).trim();
+      const normalizedBaseUrl = normalizeOllamaBaseUrl(settings.ollamaBaseUrl);
+      const availability = await ensureOllamaAvailable(normalizedBaseUrl, {
+        attemptWake: true,
+      });
 
-      const normalizedBaseUrl = baseUrl
-        .replace(/\/(?:v1|api)\/?$/, "")
-        .replace(/\/+$/, "");
+      if (!availability.available) {
+        return {
+          ok: false,
+          models: [],
+          error: availability.message,
+        };
+      }
 
       try {
         const response = await fetch(`${normalizedBaseUrl}/api/tags`);
@@ -890,7 +899,10 @@ export class EventManager {
           return {
             ok: false,
             models: [],
-            error: `Ollama responded with ${response.status}.`,
+            error:
+              response.status === 404
+                ? "Ollama is running, but the model list endpoint is unavailable. Make sure Ollama is updated and a model is installed."
+                : `Ollama responded with ${response.status}.`,
           };
         }
 
@@ -908,7 +920,9 @@ export class EventManager {
         return {
           ok: false,
           models: [],
-          error: "Ollama is offline. Try to launch Ollama.",
+          error:
+            availability.message ||
+            "Ollama responded unexpectedly. Make sure a model is installed and try again.",
         };
       }
     });

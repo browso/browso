@@ -88,3 +88,30 @@ test("settings and AI panel expose profile context controls", () => {
   assert.match(chat, /Manage profiles in Settings/);
   assert.doesNotMatch(chat, /aria-label="Active context"/);
 });
+
+test("first-run setup is wired through the browser startup flow", () => {
+  const settings = read("src/main/AISettings.ts");
+  const tab = read("src/main/Tab.ts");
+  const welcomePage = read("src/main/WelcomePage.ts");
+
+  assert.match(settings, /setupCompleted/);
+  assert.match(settings, /markSetupCompleted/);
+  assert.match(tab, /BROWSO_SETUP_COMPLETE_URL/);
+  assert.match(tab, /completeFirstRunSetup/);
+  assert.match(tab, /isSetupRequired\(\)/);
+  assert.match(welcomePage, /First-time setup/);
+  assert.match(welcomePage, /Agreement and setup terms/);
+});
+
+test("fresh AI settings default to Ollama", () => {
+  const settings = read("src/main/AISettings.ts");
+
+  assert.match(
+    settings,
+    /parseProvider\(process\.env\.LLM_PROVIDER\)\s*\?\?\s*"ollama"/,
+  );
+  assert.match(
+    settings,
+    /model: process\.env\.LLM_MODEL \|\| DEFAULTS\[provider\]\.model/,
+  );
+});

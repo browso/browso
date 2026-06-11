@@ -1,12 +1,14 @@
 interface AppSettings {
-  provider: "ollama" | "openai" | "anthropic";
+  provider: "huggingface" | "ollama" | "openai" | "anthropic";
   model: string;
   ollamaBaseUrl: string;
+  huggingFaceBaseUrl: string;
   homepage: string;
   searchEngine: "google" | "duckduckgo" | "bing";
   autoRouteToSandbox: boolean;
   sidebarWidth: number;
   memoryEnabled: boolean;
+  setupCompleted: boolean;
 }
 
 interface MemoryEntry {
@@ -36,6 +38,13 @@ interface UpdateState {
   latestVersion: string | null;
   releaseUrl: string | null;
   releaseName: string | null;
+  releaseNotes:
+    | string
+    | Array<{
+        version: string;
+        note: string | null;
+      }>
+    | null;
   publishedAt: string | null;
   checkedAt: number | null;
   error: string | null;
