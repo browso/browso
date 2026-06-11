@@ -170,19 +170,22 @@ export function buildReleaseNotes(subjects) {
     sections[section].push(note);
   }
 
-  if (RELEASE_NOTE_SECTION_ORDER.every((section) => sections[section].length === 0)) {
+  if (
+    RELEASE_NOTE_SECTION_ORDER.every(
+      (section) => sections[section].length === 0,
+    )
+  ) {
     sections.maintenance.push("Maintenance and reliability improvements.");
   }
 
-  const sectionList = RELEASE_NOTE_SECTION_ORDER
-    .map((section) => ({
-      title: RELEASE_NOTE_SECTION_TITLES[section],
-      items: sections[section],
-    }))
-    .filter((section) => section.items.length > 0);
+  const sectionList = RELEASE_NOTE_SECTION_ORDER.map((section) => ({
+    title: RELEASE_NOTE_SECTION_TITLES[section],
+    items: sections[section],
+  })).filter((section) => section.items.length > 0);
 
   const notes = sectionList.flatMap((section) => section.items);
-  const notesSummary = "The most important user-facing changes are listed first.";
+  const notesSummary =
+    "The most important user-facing changes are listed first.";
 
   return {
     notesSummary,
@@ -194,7 +197,11 @@ export function buildReleaseNotes(subjects) {
 
 function normalizeReleaseNoteSubject(subject) {
   if (/^merge\b/i.test(subject)) return null;
-  if (/(?:\[release:\s*(?:major|minor)\]|\b(?:major|minor) (?:version|update)\b)/i.test(subject)) {
+  if (
+    /(?:\[release:\s*(?:major|minor)\]|\b(?:major|minor) (?:version|update)\b)/i.test(
+      subject,
+    )
+  ) {
     return null;
   }
 
@@ -203,9 +210,12 @@ function normalizeReleaseNoteSubject(subject) {
     .replace(/\s+/g, " ")
     .replace(/^(?:-|\*|\d+\.)\s+/, "")
     .replace(/\[(?:release:\s*(?:major|minor))\]/gi, "")
-    .replace(/\b(?:fixes?|closes?|refs?)?:?\s*#\d+(?:\s*(?:,|and)\s*#\d+)*/gi, "")
+    .replace(
+      /\b(?:fixes?|closes?|refs?)?:?\s*#\d+(?:\s*(?:,|and)\s*#\d+)*/gi,
+      "",
+    )
     .replace(/\s*\(#\d+\)/g, "")
-    .replace(/\s*[\-:;,]+$/g, "")
+    .replace(/\s*[-:;,]+$/g, "")
     .trim();
 
   if (!cleaned) return null;
@@ -249,7 +259,9 @@ function renderReleaseNotesMarkdown(summary, sections) {
 
 function toHeadlineCase(value) {
   return value.replace(/\b[A-Za-z0-9][A-Za-z0-9'._-]*\b/g, (word) => {
-    const replacement = RELEASE_NOTE_HEADLINE_REPLACEMENTS.get(word.toLowerCase());
+    const replacement = RELEASE_NOTE_HEADLINE_REPLACEMENTS.get(
+      word.toLowerCase(),
+    );
     if (replacement) {
       return replacement;
     }
@@ -260,8 +272,9 @@ function toHeadlineCase(value) {
 
     return word
       .split("-")
-      .map((segment) =>
-        segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase(),
+      .map(
+        (segment) =>
+          segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase(),
       )
       .join("-");
   });

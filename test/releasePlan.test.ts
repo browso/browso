@@ -77,12 +77,10 @@ test("release notes are grouped into simple sections with markdown", () => {
     "Merge pull request #88",
   ]);
 
-  assert.deepEqual(bundle.notesSections.map((section) => section.title), [
-    "Important changes",
-    "Fixes",
-    "Improvements",
-    "Maintenance",
-  ]);
+  assert.deepEqual(
+    bundle.notesSections.map((section) => section.title),
+    ["Important changes", "Fixes", "Improvements", "Maintenance"],
+  );
   assert.deepEqual(bundle.notes, [
     "First-Run Setup Requires Agreement",
     "Fix Updater Metadata",
